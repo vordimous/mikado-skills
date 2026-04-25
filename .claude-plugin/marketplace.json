@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "mikado-skills",
+  "description": "Mikado Method skill suite for Claude Code. Turns large, scary refactors into discoverable prerequisite graphs and small, reversible commits.",
+  "owner": {
+    "name": "Aaron Danelz",
+    "url": "https://github.com/vordimous"
+  },
+  "plugins": [
+    {
+      "name": "mikado",
+      "description": "Three composable skills (mikado, mikado-loop, mikado-mr) that implement the Mikado Method for AI agents. Use mikado to start a goal, mikado-loop to drive leaves with /loop, mikado-mr to prep the GitLab merge request.",
+      "author": {
+        "name": "Aaron Danelz",
+        "url": "https://wellaged.dev"
+      },
+      "source": "./plugins/mikado",
+      "category": "workflow",
+      "homepage": "https://wellaged.dev/posts/mikado-method-ai-agents/"
+    }
+  ]
+}
