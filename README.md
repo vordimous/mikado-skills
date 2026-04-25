@@ -14,7 +14,7 @@ Three composable skills under one plugin:
 - **`mikado-loop`** — Execute exactly one leaf end-to-end (pick → implement → commit → mark done) and stop. Designed to compose with the built-in `/loop` skill so you can run `/loop /mikado-loop` and let Claude advance leaf-by-leaf with fresh context per leaf.
 - **`mikado-mr`** — When the goal is complete, synthesize a GitLab merge request from the graph and commit history. Proposes the `glab mr create` command; never runs it without confirmation. (GitLab-specific. GitHub users can still get the synthesized title and body; just substitute `gh pr create`.)
 
-The skills are designed to be composed with thin wrapper skills for project-specific conventions (build commands, ticket key formats, known flakes, MR template). See [`docs/writing-a-wrapper.md`](docs/writing-a-wrapper.md) and the [`examples/wrapper-template/`](examples/wrapper-template/) directory.
+For project-specific conventions (build commands, ticket key formats, known flakes), put them in your project's `CLAUDE.md` — the skill reads it during preflight. The skill also auto-detects Gradle/npm/pyproject build systems from the project structure.
 
 ## Installation
 
@@ -77,12 +77,10 @@ mikado-skills/
 │           ├── mikado-loop/SKILL.md
 │           └── mikado-mr/SKILL.md
 ├── examples/
-│   ├── wrapper-template/         Generic project wrapper skeleton
 │   └── worked-goal/              Real .mikado/<slug>.md from a completed goal
 ├── docs/
 │   ├── method.md                 The method, in 5 minutes
-│   ├── installing.md             Install paths (marketplace, manual, dev)
-│   └── writing-a-wrapper.md      How to layer project conventions on top
+│   └── installing.md             Install paths (marketplace, manual, dev)
 ├── LICENSE
 └── README.md
 ```

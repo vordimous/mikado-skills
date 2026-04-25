@@ -32,7 +32,7 @@ Derive a short kebab-case slug from the goal for filenames. Example: "Remove Red
 - **One leaf per commit.** Do not bundle unrelated prerequisites.
 - **Update the graph before touching code.** The graph should always lead the code, not trail it.
 - **Revert is free.** If an experiment needs more than a handful of changes before you can run tests, you're probably fixing instead of experimenting. Exit and re-scope the leaf.
-- **Use the narrowest verification that proves the change.** For pure refactors (type swaps, renames, file deletions with verified zero references): compile-only is sufficient — skip tests. For logic changes: single-class `--tests <ClassName>` filter, not module-level. Module-level tests are a yellow flag requiring explicit justification. Full module suites run at the commit boundary before the MR, not per-leaf. Wrapper skills may codify project-specific narrow-test commands; defer to them.
+- **Use the narrowest verification that proves the change.** For pure refactors (type swaps, renames, file deletions with verified zero references): compile-only is sufficient — skip tests. For logic changes: single-class `--tests <ClassName>` filter, not module-level. Module-level tests are a yellow flag requiring explicit justification. Full module suites run at the commit boundary before the MR, not per-leaf.
 - **Fold codegen byproducts into the producing leaf.** Auto-generated files (OpenAPI specs, API clients, lockfiles) regenerate deterministically from their source. When a leaf causes them to regenerate, stage and include them in the same commit as the leaf — do not create separate `chore: regenerate X` commits. The exception is when codegen regenerates on its own schedule (unrelated churn); that's the only case where a standalone regen commit is correct.
 - **Subagent timeout recovery.** If a subagent returns without committing (timed out mid-test, returned control prematurely, hit a silent error), verify its work in the main session before redelegating. If acceptance criteria are met — modified files are coherent, narrow test suite is green — commit the staged work directly. If the work is incomplete or incoherent, revert the uncommitted changes and re-delegate. Do not spin a fresh subagent on top of half-finished work.
 
@@ -53,7 +53,7 @@ Run in sequence:
 
 1. `git status --short` — must be empty. If not, ask the user to stash or commit before continuing.
 2. `git rev-parse --abbrev-ref HEAD` — must not be a protected branch (`main`, `master`, `develop`, `release/*`, `hotfix/*`). If it is, ask the user to create a feature branch first.
-3. Detect build/test commands from project structure if not supplied by a wrapper skill:
+3. Detect build/test commands from project structure (and any conventions documented in `CLAUDE.md`):
    - `build.gradle` / `settings.gradle` → Gradle
    - `package.json` → npm/pnpm/yarn (check lockfile)
    - `pyproject.toml` / `Pipfile` → Python (ask user which runner)

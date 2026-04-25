@@ -64,6 +64,6 @@ These are hard-coded into the skill instructions; users don't need to remember t
 
 The full set of agent-safety properties (adapted from [GitButler's framework](https://blog.gitbutler.com/agentic-safety)) is documented in the `mikado` skill's SKILL.md.
 
-## Wrapper skills
+## Project conventions
 
-These three skills are deliberately project-agnostic. To layer project conventions on top — Gradle module names, Jira key prefixes, known flakes, MR templates — write a thin wrapper skill that includes a "read the global mikado skill first, then apply these adaptations" instruction. See [`../../docs/writing-a-wrapper.md`](../../docs/writing-a-wrapper.md) for the pattern, and [`../../examples/wrapper-template/`](../../examples/wrapper-template/) for a runnable skeleton.
+These three skills are deliberately project-agnostic. For project-specific conventions (build commands, ticket key formats, known flakes), put them in your project's `CLAUDE.md` — the skill reads it during Phase 0 preflight. The skill also auto-detects Gradle, npm, and pyproject-based projects without explicit configuration.

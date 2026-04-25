@@ -58,7 +58,7 @@ Clone the repo somewhere convenient and add it as a local marketplace so you can
 /plugin install mikado@mikado-skills
 ```
 
-Edits to `plugins/mikado/skills/<skill>/SKILL.md` are picked up on next invocation. No publish step required. Useful when you're iterating on a wrapper skill and want fast feedback.
+Edits to `plugins/mikado/skills/<skill>/SKILL.md` are picked up on next invocation. No publish step required. Useful when you're iterating on the skill text and want fast feedback.
 
 ## Verifying
 

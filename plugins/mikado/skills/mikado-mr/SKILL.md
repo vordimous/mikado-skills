@@ -1,6 +1,6 @@
 ---
 name: mikado-mr
-description: Prepare a GitLab merge request from a completed Mikado goal. Reads .mikado/<slug>.md, extracts the graph, synthesizes an MR title and body from the graph and the commits produced on the feature branch, then proposes (does not run) the glab mr create command. Use when the user says "open the MR", "prep the MR", "/mikado-mr", or signals that a Mikado goal is done and ready to ship. Pairs with the mikado skill and any project wrapper skill. Requires glab to be installed and authenticated.
+description: Prepare a GitLab merge request from a completed Mikado goal. Reads .mikado/<slug>.md, extracts the graph, synthesizes an MR title and body from the graph and the commits produced on the feature branch, then proposes (does not run) the glab mr create command. Use when the user says "open the MR", "prep the MR", "/mikado-mr", or signals that a Mikado goal is done and ready to ship. Pairs with the mikado skill. Requires glab to be installed and authenticated.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion
 ---
 
@@ -305,6 +305,6 @@ Skip the draft cycle only for purely mechanical goals (e.g. dependency renames) 
 
 ## Related skills
 
-- `mikado` (and any project wrapper skill, e.g. `mikado-myproject`) — produce the goal file this skill consumes
+- `mikado` — produces the goal file this skill consumes
 - `r-mr-review-glab` — review the MR after it's open
 - `r-mr-post-comments-glab` — post follow-up review threads
