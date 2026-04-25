@@ -78,8 +78,14 @@ The plugin registers three skills:
 |---|---|---|
 | `mikado` | `/mikado <goal>` | Drives the full method |
 | `mikado-loop` | `/mikado-loop` | Executes one leaf and stops |
-| `mikado-mr` | `/mikado-mr` | Synthesizes a GitLab MR proposal |
+| `mikado-mr` | `/mikado-mr` | Synthesizes a merge or pull request proposal |
 
 No additional dependencies are installed. The skills use Claude Code's built-in tools (`Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `Agent`, `EnterWorktree`, `ExitWorktree`, `TodoWrite`, `AskUserQuestion`).
 
-The `mikado-mr` skill calls `glab` (GitLab CLI). If you're on GitHub or another forge, the skill still synthesizes the MR title and body; you'll just need to substitute your own command at the proposal step.
+The `mikado-mr` skill detects the forge from your `git remote get-url origin` and shells out to the appropriate CLI:
+
+- GitHub remotes → `gh` ([cli.github.com](https://cli.github.com))
+- GitLab remotes → `glab` ([gitlab.com/gitlab-org/cli](https://gitlab.com/gitlab-org/cli))
+- Anything else → manual mode: the skill still produces the title and body and tells you the manual steps to open the request in the forge UI.
+
+If a CLI is selected but not installed or authenticated, the skill stops and tells you which command to run (`gh auth login` / `glab auth login`).

@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "mikado",
-      "description": "Three composable skills (mikado, mikado-loop, mikado-mr) that implement the Mikado Method for AI agents. Use mikado to start a goal, mikado-loop to drive leaves with /loop, mikado-mr to prep the GitLab merge request.",
+      "description": "Three composable skills (mikado, mikado-loop, mikado-mr) that implement the Mikado Method for AI agents. Use mikado to start a goal, mikado-loop to drive leaves with /loop, mikado-mr to prep the merge or pull request (forge-aware: GitHub via gh, GitLab via glab).",
       "author": {
         "name": "Aaron Danelz"
       },

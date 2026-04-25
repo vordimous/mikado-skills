@@ -12,7 +12,7 @@ Three composable skills under one plugin:
 
 - **`mikado`** — Start a goal. Run the naive experiment in a git worktree, analyze failures, record prerequisites in `.mikado/<slug>.md`, drive the leaf loop. Reverts are free; commits are small and explicit.
 - **`mikado-loop`** — Execute exactly one leaf end-to-end (pick → implement → commit → mark done) and stop. Designed to compose with the built-in `/loop` skill so you can run `/loop /mikado-loop` and let Claude advance leaf-by-leaf with fresh context per leaf.
-- **`mikado-mr`** — When the goal is complete, synthesize a GitLab merge request from the graph and commit history. Proposes the `glab mr create` command; never runs it without confirmation. (GitLab-specific. GitHub users can still get the synthesized title and body; just substitute `gh pr create`.)
+- **`mikado-mr`** — When the goal is complete, synthesize a merge or pull request from the graph and commit history. Detects the forge (GitHub or GitLab) from the git remote and proposes the appropriate `gh pr create` or `glab mr create` command; falls back to manual instructions for unknown forges. Never runs the create command without confirmation.
 
 For project-specific conventions (build commands, ticket key formats, known flakes), put them in your project's `CLAUDE.md` — the skill reads it during preflight. The skill also auto-detects Gradle/npm/pyproject build systems from the project structure.
 
@@ -54,7 +54,7 @@ When all prerequisites are checked, the goal itself becomes the final leaf. Then
 /mikado-mr
 ```
 
-builds the MR title and body from the graph and the commits, and shows you the `glab mr create` command. You decide when to run it.
+builds the title and body from the graph and the commits, detects your forge, and shows you the right `gh pr create` or `glab mr create` command. You decide when to run it.
 
 ## Why this exists
 

@@ -30,12 +30,18 @@ Emits a status line at the end of each invocation that `/loop` can parse:
 
 ### `/mikado-mr`
 
-Reads the completed `.mikado/<slug>.md` and synthesizes a GitLab MR proposal: title, body (with the Mermaid graph and commit sequence inline), and the `glab mr create` command. Never runs the command itself without confirmation.
+Reads the completed `.mikado/<slug>.md` and synthesizes a merge or pull request proposal: title, body (with the Mermaid graph and commit sequence inline), and the appropriate create command. Detects the forge from `git remote get-url origin`:
 
-Supports three MR shapes:
-- **Single MR** (default) — one MR for the whole goal.
-- **Clustered MRs** — one MR per subsystem cluster (e.g. `common` / `ui` / `migration`), each targeting the main branch independently. Recommended for goals that span ≥3 subsystems.
-- **Stacked MRs** — chain of MRs where each targets its parent. Only for teams that don't squash-merge.
+- `github.com` → `gh pr create`
+- any host containing `gitlab` (e.g. `gitlab.com`, self-hosted) → `glab mr create`
+- anything else → manual mode: shows the synthesis and the new-request URL pattern for you to open the request yourself.
+
+Never runs the create command itself without confirmation.
+
+Supports three request shapes:
+- **Single request** (default) — one MR/PR for the whole goal.
+- **Clustered requests** — one request per subsystem cluster (e.g. `common` / `ui` / `migration`), each targeting the main branch independently. Recommended for goals that span ≥3 subsystems.
+- **Stacked requests** — chain of requests where each targets its parent. Only for teams that don't squash-merge.
 
 ## How they compose
 
@@ -46,7 +52,7 @@ Supports three MR shapes:
 /loop /mikado-loop       ── auto-pace through leaves, fresh context each iteration
    │
    ▼
-/mikado-mr               ── synthesize the MR from graph + commits
+/mikado-mr               ── synthesize the MR/PR from graph + commits
 ```
 
 Each skill operates on the same `.mikado/<slug>.md` file. The graph is the source of truth; the skills read and write it but never push state to memory or external systems.
@@ -60,7 +66,7 @@ These are hard-coded into the skill instructions; users don't need to remember t
 - **Stage specific files, never `git add -A`.** The user sees each commit's diff stat before it lands.
 - **Resist fixing during the naive experiment.** The experiment's job is to surface failures, not to fix them. If you start fixing, you lose the signal.
 - **Revert is free.** If a leaf needs more than a handful of changes before tests pass, you're probably fixing instead of experimenting. Exit and re-scope.
-- **Use the narrowest verification.** Compile-only for pure refactors; single-class `--tests` filter for logic changes. Module-level test suites are a yellow flag and reserved for the commit boundary before opening the MR.
+- **Use the narrowest verification.** Compile-only for pure refactors; single-class `--tests` filter for logic changes. Module-level test suites are a yellow flag and reserved for the commit boundary before opening the request.
 
 The full set of agent-safety properties (adapted from [GitButler's framework](https://blog.gitbutler.com/agentic-safety)) is documented in the `mikado` skill's SKILL.md.
 
