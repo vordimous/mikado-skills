@@ -37,7 +37,9 @@ If multiple `.mikado/*.md` files exist, the user can pass a slug: `/mikado-mr re
 Read `.mikado/<slug>.md`. Extract:
 - Goal statement (first heading)
 - Ticket (front-matter, if present)
+- Source plan path (front-matter, if present; goes into the MR body's Why section as "Plan: `<path>`" so reviewers can find the source doc)
 - Base commit (front-matter)
+- Acceptance section (bullets, if present)
 - Mermaid graph
 - Prerequisite checklist (with done/pending status)
 - Notes and learnings
@@ -165,7 +167,11 @@ If no ticket, use plain Conventional Commits:
 ````markdown
 ## Why
 
-<one paragraph. Pull from the goal statement and Notes section. If a ticket is linked, cross-reference it.>
+<one paragraph. Pull from the goal statement and Notes section. If a ticket is linked, cross-reference it. If a Source plan is recorded in the goal file's front-matter, append "Plan: `<path>`" on its own line so reviewers can read the original spec.>
+
+## Acceptance
+
+<copy the goal file's `## Acceptance` section verbatim. If the goal file has no Acceptance section, omit this heading entirely.>
 
 ## Mikado Graph
 

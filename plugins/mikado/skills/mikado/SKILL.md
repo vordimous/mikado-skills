@@ -20,10 +20,25 @@ The prerequisite graph is the artifact. Experiment code is throwaway.
 ## Inputs
 
 Invoked as `/mikado <goal>` or `/mikado <path-to-spec.md>`. The argument is either:
-- A direct prose goal: `/mikado remove Redisson and migrate to Lettuce`
-- A path to a spec file: `/mikado docs/specs/remove-redisson.md`
 
-Derive a short kebab-case slug from the goal for filenames. Example: "Remove Redisson and migrate to Lettuce" → `remove-redisson`.
+- **A direct prose goal:** `/mikado remove Redisson and migrate to Lettuce`. The skill writes a minimal goal file and discovers all prerequisites from the naive experiment.
+- **A path to a spec file (preferred for substantive goals):** `/mikado docs/specs/remove-redisson.md`. The skill ingests the file in Phase 0.75 and seeds the graph with **anticipated** prerequisites that the naive experiment then confirms, refines, or invalidates.
+
+Plans from other sessions (Claude plan-mode output, ChatGPT, hand-written) must be saved to a file first. The skill does not accept inline multi-line plans; that's deliberate to keep the graph reproducible from disk state.
+
+Derive a short kebab-case slug from the goal for filenames. Example: "Remove Redisson and migrate to Lettuce" → `remove-redisson`. When ingesting a spec file, prefer the file's basename (minus extension) as the slug if it's already kebab-case.
+
+### Spec file schema (loose)
+
+The skill scans for these headings case-insensitively. Synonyms in parentheses; any one match is enough. Sections not found are skipped without complaint.
+
+- **Goal** (Goal Statement, Objective, Summary): the goal sentence. Fall back to the document's first H1 if absent.
+- **Why** (Motivation, Background, Context): copied verbatim into the goal file's `Notes and learnings` as the opening paragraph.
+- **Acceptance** (Acceptance Criteria, Done When, Success Criteria): copied into a new `## Acceptance` section in the goal file. Reviewers and the leaf loop both consult this.
+- **Tasks** (Steps, Plan, Subtasks, Prerequisites, Work Items, Implementation Plan): each top-level bullet becomes an **anticipated** prerequisite (dashed orange `classDef anticipated` in the graph). Nested bullets stay as sub-notes on the parent prereq, not as separate nodes; expansion happens through experiments, not indentation.
+- **Open Questions** (Decisions Needed, TBD, Unknowns): each item becomes an entry in `Notes and learnings` under an `### Open questions` subsection, marked `(pending decision)` until resolved.
+
+If none of these headings match and the file is non-empty, treat its full contents as the goal statement.
 
 ## Operating rules (read before acting)
 
@@ -80,6 +95,27 @@ If the user resumes, apply any confirmed check-offs to the graph before Phase 4,
 
 If the branch `HEAD` no longer contains the `Base commit` in its ancestry (force-pushed, rebased onto a different base), stop and ask the user how to proceed. Do not silently mutate the graph.
 
+## Phase 0.75: Plan ingestion (new goals only)
+
+Skip this phase entirely if the argument is direct prose, or if Phase 0.5 detected a resume. Run only when the argument resolves to an existing markdown file.
+
+1. Read the file.
+2. Walk the document looking for the section headings listed in the [spec file schema](#spec-file-schema-loose). Match case-insensitively. Stop scanning a section when the next H2 (or higher) heading is reached.
+3. For each section found, capture the content for use in Phase 1's template:
+   - **Goal** sentence → goal statement (first H1 fallback if absent)
+   - **Why** body → opening paragraph of `Notes and learnings`
+   - **Acceptance** bullets → `## Acceptance` section
+   - **Tasks** top-level bullets → anticipated prereqs (one node per bullet, named `P1`, `P2`, ...)
+   - **Open Questions** items → `Notes and learnings` → `### Open questions` subsection
+4. If the document is non-empty but no recognized section was found, log "No recognized headings; treating full document as goal statement." and continue.
+5. Show the user a one-line summary of what was ingested:
+   ```
+   Ingested plan from <path>: <N> anticipated prereqs, <M> open questions, <K> acceptance criteria.
+   ```
+   No confirmation prompt; ingestion is non-destructive (the naive experiment in Phase 2 still runs and corrects any wrong anticipations).
+
+Anticipated prereqs are not the same as observed prereqs. They start the graph with a hypothesis that the naive experiment will validate. The Mermaid graph distinguishes them via `classDef`: solid green for observed, dashed orange for anticipated.
+
 ## Phase 1: Record the goal
 
 Write `.mikado/<slug>.md` using this template (the outer four-backtick fence is only here so the inner three-backtick mermaid fence renders; write the inner version to the file):
@@ -90,10 +126,15 @@ Write `.mikado/<slug>.md` using this template (the outer four-backtick fence is 
 **Slug:** <slug>
 **Started:** <ISO 8601 date>
 **Ticket:** <Jira/issue key if discoverable, else omit>
+**Source plan:** <relative path to ingested spec file; omit this line entirely if direct prose goal>
 **Build:** <build command>
 **Test:** <test command>
 **Commit strategy:** <unset; to be set on first leaf: separate|folded>
 **Base commit:** <SHA of feature branch HEAD when goal started>
+
+## Acceptance
+
+<one bullet per criterion from the spec file's Acceptance section. If direct prose goal or no Acceptance section was ingested, write `_(none specified; populate as the goal progresses)_`>
 
 ## Status
 Discovering prerequisites.
@@ -103,15 +144,22 @@ Discovering prerequisites.
 ```mermaid
 graph TD
   G((Goal: <short restatement>))
+  <if anticipated prereqs were ingested in Phase 0.75, add `G --> P1[<task 1>]`, `G --> P2[<task 2>]`, etc., one per ingested task>
+
+  classDef observed fill:#e8f5e9,stroke:#2e7d32
+  classDef anticipated fill:#fff3e0,stroke:#e65100,stroke-dasharray: 5 5
+  <if anticipated prereqs were ingested, add `class P1,P2,... anticipated` listing all ingested node IDs>
 ```
 
 ## Prerequisites
 
-_(none yet; will populate after the naive experiment)_
+<one entry per anticipated prereq, formatted as `- [ ] **P<N>.** <task text> (anticipated)`. If none ingested, write `_(none yet; will populate after the naive experiment)_`>
 
 ## Notes and learnings
 
-_(capture non-obvious facts about the codebase as you discover them)_
+<if a Why section was ingested, paste its content as the opening paragraph; otherwise leave blank>
+
+<if Open Questions were ingested, add an `### Open questions` subsection with one bulleted entry per question, each tagged `(pending decision)`>
 ````
 
 `Base commit` is the `git rev-parse HEAD` at the moment of goal creation. It anchors resume-time reconciliation (Phase 0.5) against the commits produced since.
@@ -138,20 +186,46 @@ This is where human judgment is most valuable. For each failure cluster, ask:
 - **Is this prerequisite actionable?** "Fix null pointer in BillingService" is actionable. "Make it faster" is not; decompose further.
 - **Does this prerequisite obviously have its own prerequisites?** If so, note them as children, but do NOT expand them yet. Expansion happens through experiments, not speculation.
 
+### Three-way reconciliation (when a plan was ingested)
+
+If Phase 0.75 seeded the graph with anticipated prereqs, every failure cluster falls into one of three buckets:
+
+- **Confirmed:** the failure matches an anticipated prereq. Promote that node from `anticipated` to `observed` (move its ID from the `class ... anticipated` line to a `class ... observed` line). Keep the same node ID so existing references stay valid.
+- **New:** the failure has no matching anticipated prereq. Add a new `observed` node with a fresh ID.
+- **Stale:** an anticipated prereq did not surface as a failure. Keep it as `anticipated` for now and add a note in `Notes and learnings` flagging that the naive experiment did not exercise it. Stale prereqs often surface only after observed leaves land; revisit during the leaf loop. If after the entire goal is complete a stale prereq was never exercised, it was probably wrong, and the retro should call it out.
+
+Record the reconciliation tally in `Notes and learnings` once Phase 3 completes:
+
+```
+Reconciliation: <X> confirmed, <Y> new, <Z> stale.
+```
+
+If no plan was ingested (direct prose goal), skip reconciliation. All prereqs are observed by definition; just add them to the graph and the `class ... observed` line.
+
+### Updating the graph
+
 Update `.mikado/<slug>.md`:
-- Add each prerequisite to the Mermaid graph
-- Add each to a checklist below the graph
+- Add new observed prereqs to the Mermaid graph; promote confirmed anticipated prereqs by moving their IDs between `class` lines
+- Add each new prereq to the checklist below the graph (drop the `(anticipated)` tag from any prereq that gets promoted)
 - Use short imperative phrases: "Extract UserService from RequestHandler"
 
-Example:
+Example (mixed graph after reconciliation):
 
 ```mermaid
 graph TD
   G((Goal: Remove Redisson))
   G --> P1[Replace RedissonClient beans with Lettuce]
   G --> P2[Migrate distributed locks]
+  G --> P3[Drop Redisson cache manager]
   P2 --> P2a[Choose lock replacement]
+
+  classDef observed fill:#e8f5e9,stroke:#2e7d32
+  classDef anticipated fill:#fff3e0,stroke:#e65100,stroke-dasharray: 5 5
+  class P1,P2,P2a observed
+  class P3 anticipated
 ```
+
+Here P1, P2, and P2a were observed in the naive experiment; P3 was anticipated from the plan and didn't surface yet (so it stays anticipated until a re-experiment after the observed leaves land).
 
 Commit: `mikado: record prerequisites from naive attempt`. Show the diff summary, then commit directly.
 
