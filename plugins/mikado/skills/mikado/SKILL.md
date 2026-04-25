@@ -20,10 +20,10 @@ The prerequisite graph is the artifact. Experiment code is throwaway.
 ## Inputs
 
 Invoked as `/mikado <goal>` or `/mikado <path-to-spec.md>`. The argument is either:
-- A direct prose goal: `/mikado remove Redisson from x1-app`
+- A direct prose goal: `/mikado remove Redisson and migrate to Lettuce`
 - A path to a spec file: `/mikado docs/specs/remove-redisson.md`
 
-Derive a short kebab-case slug from the goal for filenames. Example: "Remove Redisson from x1-app" → `remove-redisson`.
+Derive a short kebab-case slug from the goal for filenames. Example: "Remove Redisson and migrate to Lettuce" → `remove-redisson`.
 
 ## Operating rules (read before acting)
 

@@ -12,7 +12,7 @@ Three composable skills under one plugin:
 
 - **`mikado`** — Start a goal. Run the naive experiment in a git worktree, analyze failures, record prerequisites in `.mikado/<slug>.md`, drive the leaf loop. Reverts are free; commits are small and explicit.
 - **`mikado-loop`** — Execute exactly one leaf end-to-end (pick → implement → commit → mark done) and stop. Designed to compose with the built-in `/loop` skill so you can run `/loop /mikado-loop` and let Claude advance leaf-by-leaf with fresh context per leaf.
-- **`mikado-mr`** — When the goal is complete, synthesize a GitLab merge request from the graph and commit history. Proposes the `glab mr create` command; never runs it without confirmation.
+- **`mikado-mr`** — When the goal is complete, synthesize a GitLab merge request from the graph and commit history. Proposes the `glab mr create` command; never runs it without confirmation. (GitLab-specific. GitHub users can still get the synthesized title and body; just substitute `gh pr create`.)
 
 The skills are designed to be composed with thin wrapper skills for project-specific conventions (build commands, ticket key formats, known flakes, MR template). See [`docs/writing-a-wrapper.md`](docs/writing-a-wrapper.md) and the [`examples/wrapper-template/`](examples/wrapper-template/) directory.
 
@@ -30,7 +30,7 @@ That's it. The three skills are now available as `/mikado`, `/mikado-loop`, and 
 ## Quick start
 
 ```
-/mikado remove Redisson from x1-app
+/mikado remove Redisson and migrate to Lettuce
 ```
 
 Claude will:

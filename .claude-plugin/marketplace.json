@@ -11,11 +11,11 @@
       "name": "mikado",
       "description": "Three composable skills (mikado, mikado-loop, mikado-mr) that implement the Mikado Method for AI agents. Use mikado to start a goal, mikado-loop to drive leaves with /loop, mikado-mr to prep the GitLab merge request.",
       "author": {
-        "name": "Aaron Danelz",
-        "url": "https://wellaged.dev"
+        "name": "Aaron Danelz"
       },
       "source": "./plugins/mikado",
       "category": "workflow",
+      "tags": ["mikado", "refactoring", "workflow"],
       "homepage": "https://wellaged.dev/posts/mikado-method-ai-agents/"
     }
   ]

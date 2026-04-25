@@ -1,6 +1,6 @@
 ---
 name: mikado-mr
-description: Prepare a GitLab merge request from a completed Mikado goal. Reads .mikado/<slug>.md, extracts the graph, synthesizes an MR title and body from the graph and the commits produced on the feature branch, then proposes (does not run) the glab mr create command. Use when the user says "open the MR", "prep the MR", "/mikado-mr", or signals that a Mikado goal is done and ready to ship. Pairs with the mikado and mikado-x1 skills. Requires glab to be installed and authenticated.
+description: Prepare a GitLab merge request from a completed Mikado goal. Reads .mikado/<slug>.md, extracts the graph, synthesizes an MR title and body from the graph and the commits produced on the feature branch, then proposes (does not run) the glab mr create command. Use when the user says "open the MR", "prep the MR", "/mikado-mr", or signals that a Mikado goal is done and ready to ship. Pairs with the mikado skill and any project wrapper skill. Requires glab to be installed and authenticated.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion
 ---
 
@@ -81,7 +81,7 @@ Split the goal into N independent MRs, each targeting the main branch, clustered
 
 **When to offer this:** the goal touches clearly separate subsystems (e.g. `refactor(common)` + `feat(ui)` + `chore(migration)` commits). Reviewers for each subsystem can work in parallel.
 
-**Cluster detection heuristic:** group commits by the scope in the Conventional Commits header. Example groups from the X1-5214 retrospective:
+**Cluster detection heuristic:** group commits by the scope in the Conventional Commits header. Example groupings:
 - `common` / `integrations` commits → backend cluster
 - `ui` commits → frontend cluster
 - `migration` commits → migration cluster
@@ -147,9 +147,9 @@ If the user picks 2 or 3, the subsequent phases produce multiple MR proposals in
 
 ### Title
 
-If the goal has a ticket key (e.g. `X1-5245`), use:
+If the goal has a ticket key (e.g. `PROJ-1234`), use:
 ```
-X1-5245 // <type>: <goal statement in imperative, ≤60 chars>
+PROJ-1234 // <type>: <goal statement in imperative, ≤60 chars>
 ```
 
 If no ticket, use plain Conventional Commits:
@@ -305,6 +305,6 @@ Skip the draft cycle only for purely mechanical goals (e.g. dependency renames) 
 
 ## Related skills
 
-- `mikado`, `mikado-x1` — produce the goal file this skill consumes
+- `mikado` (and any project wrapper skill, e.g. `mikado-myproject`) — produce the goal file this skill consumes
 - `r-mr-review-glab` — review the MR after it's open
 - `r-mr-post-comments-glab` — post follow-up review threads

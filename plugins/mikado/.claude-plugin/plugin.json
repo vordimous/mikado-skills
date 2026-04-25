@@ -4,8 +4,7 @@
   "description": "Mikado Method skills for Claude Code: discover prerequisites for large refactors by experiment, drive leaves with /loop, ship via GitLab MR.",
   "version": "0.1.0",
   "author": {
-    "name": "Aaron Danelz",
-    "url": "https://wellaged.dev"
+    "name": "Aaron Danelz"
   },
   "homepage": "https://github.com/vordimous/mikado-skills",
   "repository": "https://github.com/vordimous/mikado-skills",
