@@ -46,7 +46,9 @@ Claude will:
 5. Pick a leaf and implement it on your real feature branch.
 6. Commit one leaf, mark it checked, repeat.
 
-To auto-pace through all leaves with fresh context per leaf:
+The skill pauses at each phase boundary to ask for input (commit strategy, cadence, sub-prerequisite triage). See [docs/session-rhythm.md](docs/session-rhythm.md) for what to expect.
+
+`/mikado` drives the leaf loop in the same session by default, which is what you want if you'd rather review each commit before the next leaf starts. For power-through runs where you want fresh context per leaf instead of reviewing between commits, use the optional loop variant:
 
 ```
 /loop /mikado-loop

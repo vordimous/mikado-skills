@@ -47,7 +47,7 @@ If none of these headings match and the file is non-empty, treat its full conten
 - **One leaf per commit.** Do not bundle unrelated prerequisites.
 - **Update the graph before touching code.** The graph should always lead the code, not trail it.
 - **Revert is free.** If an experiment needs more than a handful of changes before you can run tests, you're probably fixing instead of experimenting. Exit and re-scope the leaf.
-- **Use the narrowest verification that proves the change.** For pure refactors (type swaps, renames, file deletions with verified zero references): compile-only is sufficient; skip tests. For logic changes: single-class `--tests <ClassName>` filter, not module-level. Module-level tests are a yellow flag requiring explicit justification. Full module suites run at the commit boundary before the MR, not per-leaf.
+- **Use the goal's Testing plan to scope verification.** Phase 0.4 derives a tiered plan (fast / targeted / regression, plus optional affinity rules) from existing repo context and gets the user's signoff. The agreed plan is the `## Testing plan` section of the goal file. Default to the fast tier after every leaf. Escalate to the targeted tier when the leaf changes logic (not pure refactor) or an affinity rule fires. The regression tier runs at Phase 5 only, never per-leaf. Treat unsanctioned module-level runs in the leaf loop as a yellow flag requiring explicit justification.
 - **Fold codegen byproducts into the producing leaf.** Auto-generated files (OpenAPI specs, API clients, lockfiles) regenerate deterministically from their source. When a leaf causes them to regenerate, stage and include them in the same commit as the leaf; do not create separate `chore: regenerate X` commits. The exception is when codegen regenerates on its own schedule (unrelated churn); that's the only case where a standalone regen commit is correct.
 - **Subagent timeout recovery.** If a subagent returns without committing (timed out mid-test, returned control prematurely, hit a silent error), verify its work in the main session before redelegating. If acceptance criteria are met (modified files are coherent, narrow test suite is green), commit the staged work directly. If the work is incomplete or incoherent, revert the uncommitted changes and re-delegate. Do not spin a fresh subagent on top of half-finished work.
 
@@ -68,12 +68,69 @@ Run in sequence:
 
 1. `git status --short`. Must be empty. If not, ask the user to stash or commit before continuing.
 2. `git rev-parse --abbrev-ref HEAD`. Must not be a protected branch (`main`, `master`, `develop`, `release/*`, `hotfix/*`). If it is, ask the user to create a feature branch first.
-3. Detect build/test commands from project structure (and any conventions documented in `CLAUDE.md`):
+3. Identify the build system(s) so Phase 0.4 has something to derive from:
    - `build.gradle` / `settings.gradle` → Gradle
    - `package.json` → npm/pnpm/yarn (check lockfile)
    - `pyproject.toml` / `Pipfile` → Python (ask user which runner)
    - Polyglot repos: ask the user which subsystem the goal targets.
 4. Ensure `.mikado/` exists; create it if not.
+
+## Phase 0.4: Testing plan
+
+The leaf loop runs verification after every leaf. Without an explicit plan for what runs when, the skill either burns minutes on broad suites per leaf or under-tests and ships regressions. Derive a tiered plan from existing repo context, show it to the user, and get signoff before any experiment runs.
+
+### Sources to consult (in order)
+
+1. `CLAUDE.md` (project root and any nested), looking for sections named "Testing", "Test", "Verification", "CI", or similar.
+2. `README.md` (project root), same heading patterns.
+3. Build manifests: `package.json` scripts, `build.gradle` / `settings.gradle` task names, `pyproject.toml` `[tool.*]` sections, `Makefile` targets.
+4. Ecosystem convention. Use only when nothing more specific was found. Examples: Gradle → `./gradlew compileJava` (fast), `./gradlew test` (regression). npm → `npm run typecheck` (fast), `npm test` (regression). pytest → `pytest --collect-only` (fast), `pytest` (regression).
+
+If a resumed goal already has a `## Testing plan` section in `.mikado/<slug>.md`, read it from there instead of re-deriving. The user signs off, amends, or replaces the stored plan.
+
+### Plan structure
+
+A plan has three tiers. Every plan must populate at least the fast and regression tiers. Targeted is optional but strongly recommended for any project with a non-trivial test suite.
+
+- **fast** runs after every leaf by default. Compile, typecheck, or lint. Sub-30s. Cheap enough that "always run" is the right policy.
+- **targeted** runs on leaves that change logic, scoped to the affected module/class. 1-5min. The leaf loop selects this tier when the leaf changes business logic, not when it's a pure refactor.
+- **regression** is the full relevant suite. Runs at Phase 5 (commit boundary before MR), never per-leaf.
+
+Optionally, an **affinity map** ("if a leaf touches `src/billing/`, escalate to targeted with filter `Billing*`") and a **skip list** for long-running tasks the user explicitly wants kept out of the leaf loop (e2e, integration suites tied to external services, etc.).
+
+### Signoff prompt
+
+Show the derived plan and ask the user to confirm or amend:
+
+```
+Testing plan (derived from <source summary>):
+
+  fast       <command>            (per-leaf default)
+  targeted   <command>            (logic changes; supply pattern)
+  regression <command>            (Phase 5 only)
+
+  Affinity:
+    <bullet>  |  (none specified)
+
+  Skip in the leaf loop:
+    <bullet>  |  (none)
+
+  Source: <CLAUDE.md section / README / build files / convention>
+  Confidence: <high | medium | low>
+
+Sign off, amend, or add instructions:
+```
+
+The user can confirm as-is, edit any line, add affinity rules, or override the source-derived defaults entirely. Whatever they sign off becomes the durable plan.
+
+The agreed plan is written into the goal file in Phase 1 as the `## Testing plan` section. For resumed goals, write any amendments back to that section and propose a single commit (`mikado: update testing plan`) if the section changed.
+
+Confidence is the skill's honest read of how well the derived plan matches reality:
+- **high** explicit testing documentation exists and the plan was lifted from it
+- **medium** build manifests provided commands but no documented strategy
+- **low** pure ecosystem convention; no project-specific signal
+
+Low confidence is not a blocker. It's a signal to the user that this is the moment to add testing instructions if they have any.
 
 ## Phase 0.5: Resume detection and reconciliation
 
@@ -127,14 +184,35 @@ Write `.mikado/<slug>.md` using this template (the outer four-backtick fence is 
 **Started:** <ISO 8601 date>
 **Ticket:** <Jira/issue key if discoverable, else omit>
 **Source plan:** <relative path to ingested spec file; omit this line entirely if direct prose goal>
-**Build:** <build command>
-**Test:** <test command>
 **Commit strategy:** <unset; to be set on first leaf: separate|folded>
 **Base commit:** <SHA of feature branch HEAD when goal started>
 
 ## Acceptance
 
 <one bullet per criterion from the spec file's Acceptance section. If direct prose goal or no Acceptance section was ingested, write `_(none specified; populate as the goal progresses)_`>
+
+## Testing plan
+
+**Source:** <e.g., "CLAUDE.md > Testing section + package.json scripts" or "Inferred from build.gradle (no testing docs found)">
+**Confidence:** <high | medium | low>
+
+### Tiers
+
+- **fast** (per-leaf default): `<command>` — <one-line purpose, e.g., "compile-only typecheck">
+- **targeted** (logic changes): `<command>` — <one-line purpose; often takes a pattern argument>
+- **regression** (Phase 5 only): `<command>` — full suite
+
+### Affinity
+
+<bullets in the form `touched path → tier with filter`, or `_(none specified; rely on tier defaults)_`>
+
+### Skip in the leaf loop
+
+<bullets for long-running tasks the user excluded, or `_(none)_`>
+
+### Flaky tests
+
+<bullets in the form `<test name>: <symptom>`, populated as discovered, or `_(none yet)_`>
 
 ## Status
 Discovering prerequisites.
@@ -172,7 +250,7 @@ Commit: `mikado: start goal '<slug>'`. Show the diff summary, then commit direct
 
 1. `EnterWorktree`. Creates an isolated worktree off the current branch.
 2. Inside the worktree, attempt the goal the most obvious way. Do not try to be clever about prerequisites. The experiment is a sensor, not an implementation.
-3. Run the build; run the tests. Capture ALL failures: compile errors, test failures, runtime errors, lint warnings that would gate a commit.
+3. Run the regression tier from the goal file's `## Testing plan` (the naive experiment wants maximum surface, not minimum). Capture ALL failures: compile errors, test failures, runtime errors, lint warnings that would gate a commit. Skip-listed tasks remain skipped; the user already opted them out for the loop, and the experiment respects that.
 4. Do NOT attempt to fix anything. Collect signal only.
 5. `ExitWorktree`. Discards all changes.
 
@@ -259,7 +337,7 @@ File count alone is a weak signal; 10 files of single-line type swaps may be fas
 When delegating, the subagent prompt must include:
 1. The full current contents of `.mikado/<slug>.md`
 2. The specific leaf to implement, verbatim
-3. Acceptance criteria: "build passes; tests pass for affected modules; no new failures anywhere; change is scoped strictly to this leaf"
+3. Acceptance criteria: "fast tier from the Testing plan passes; targeted tier passes for the affected scope (per affinity rules, if any); no new failures anywhere; change is scoped strictly to this leaf"
 4. A directive: "If this leaf turns out to have its own prerequisites (new compile/test errors you can't resolve within this leaf's scope), STOP and report them as sub-prerequisites. Do not try to fix them."
 
 ### 4c. Experiment if uncertain
@@ -268,9 +346,15 @@ If it's not obvious the leaf will apply cleanly, run a worktree experiment scope
 
 ### 4d. Implement cleanly on the feature branch
 
-On the main tree, make the focused change. Run the narrowest verification that proves the change (see operating rule). For mechanical refactors, a targeted compile is often sufficient; avoid `:module:test` unless the leaf adds logic.
+On the main tree, make the focused change. Run the appropriate tier from the goal file's `## Testing plan`:
 
-**Flaky-test rule.** If a test fails on first run, re-run *only that one test* once. If it passes on the second run, record the test name and behavior in the `Notes and learnings` section (`Flaky: <test name>: <symptom>`) and continue. If it fails again, treat it as a real failure and either fix within this leaf (if trivial and in scope) or record a new sub-prerequisite and revert. Do not re-run more than once; chasing flakes at the leaf level burns the session.
+- **Fast tier** by default. Always runs after every leaf.
+- **Targeted tier** when (a) the leaf changes logic rather than mechanical refactor, or (b) an affinity rule in the plan matches a path the leaf touched. Apply the narrowest filter the targeted command supports (single class, single test pattern) so the run stays focused.
+- **Regression tier** is reserved for Phase 5; do not run it per leaf.
+
+If the leaf touches a path with no affinity rule and changes logic, propose escalating to targeted with a specific filter and confirm with the user before adding a permanent affinity rule to the plan.
+
+**Flaky-test rule.** If a test fails on first run, re-run *only that one test* once. If it passes on the second run, append it to the goal file's `## Testing plan` → `### Flaky tests` list (`<test name>: <symptom>`) and continue. If it fails again, treat it as a real failure and either fix within this leaf (if trivial and in scope) or record a new sub-prerequisite and revert. Do not re-run more than once; chasing flakes at the leaf level burns the session.
 
 ### 4e. Commit
 
@@ -297,7 +381,7 @@ When all prerequisites are checked, attempt the original goal:
 
 1. Optional final worktree experiment to confirm nothing regressed.
 2. Implement on the feature branch.
-3. Run the full relevant suite.
+3. Run the regression tier from the goal file's `## Testing plan`. Capture any new flakes in the plan's flaky tests list before opening the MR.
 4. Propose the final commit: something like `<type>: <goal>` with the ticket key.
 5. Update the graph status to `Complete`, dated.
 
@@ -326,5 +410,5 @@ Default to single for small goals, clustered for large ones. Only use stacked wh
 - **Skipping reverts.** "I'll just keep this working code and clean up later" is how merges become disasters. The method's value comes from always returning to a known-good state between leaves.
 - **Graph drift.** The graph and code must match. If the user adds a commit out-of-band, reconcile the graph before the next leaf.
 - **Scope leaks between leaves.** A leaf that solves one prerequisite's symptom with a shim that touches an adjacent prerequisite's territory creates latent bugs (the FE shim displays legacy values correctly but the backend still sees them as unknown). If a leaf's implementation reaches into another prerequisite's scope, either fold the two leaves or stop and surface the leak as a sub-prerequisite.
-- **Running broad tests per leaf.** Module-level test suites burn minutes and compound across leaves. Default to compile-only for pure refactors and `--tests <ClassName>` for logic changes. Full module runs are reserved for the commit boundary before opening the MR.
+- **Running broad tests per leaf.** Regression-tier suites burn minutes and compound across leaves. Stick to the fast tier from the goal's Testing plan by default; escalate to targeted only when the leaf changes logic or an affinity rule fires. Regression runs once, at Phase 5.
 - **Separate codegen chore commits.** Regenerated OpenAPI specs, API clients, and lockfiles belong in the commit of the leaf that caused them to regenerate. Don't split them out.
