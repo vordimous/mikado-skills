@@ -38,7 +38,7 @@ Complete (2026-03-22). All seven prerequisites landed on `chore/PROJ-1234-remove
 
 ## MR
 
-- !4521 — PROJ-1234 // chore: remove Redisson, migrate to Spring Data Redis (Lettuce)
+- !4521: PROJ-1234 // chore: remove Redisson, migrate to Spring Data Redis (Lettuce)
 
 ## Mikado Graph
 
@@ -69,7 +69,7 @@ Legend: solid green = observed failure in naive experiment; dashed orange = anti
 
 ## Prerequisites
 
-**Observed (from naive experiment — compile errors after deleting Redisson dependency):**
+**Observed (from naive experiment, via compile errors after deleting Redisson dependency):**
 
 - [x] **P1.** Replace `RedissonClient` bean with `RedisTemplate<String, Object>` + Lettuce connection factory
   - Files: `RedisConfig.java`, `CacheConfig.java`
@@ -103,9 +103,9 @@ Legend: solid green = observed failure in naive experiment; dashed orange = anti
 
 ## Notes and learnings
 
-- **The naive experiment under-sampled.** I expected ~3 prerequisites; the experiment surfaced 4. The fourth (P4 cache manager) only became obvious after P1's bean replacement compiled — the Redisson cache manager was wired separately and the compiler didn't flag it until I ran `./gradlew :app:test`.
+- **The naive experiment under-sampled.** I expected ~3 prerequisites; the experiment surfaced 4. The fourth (P4 cache manager) only became obvious after P1's bean replacement compiled. The Redisson cache manager was wired separately, and the compiler didn't flag it until I ran `./gradlew :app:test`.
 - **Lock key compatibility matters.** The Redisson lock and Spring Integration's `RedisLockRegistry` use slightly different internal key formats. We preserved the user-facing lock name but accepted that any locks held during deploy would briefly fail to coordinate across the cutover. Mitigated by deploying during a low-traffic window.
-- **Rate-limiter cutover required dual-write briefly.** For two hours, both the Redisson and Lettuce rate limiters were active so that throttling state didn't reset to empty on deploy. This wasn't a leaf — it was a deploy-time concern surfaced in P3a's verification. Documented in the MR description.
+- **Rate-limiter cutover required dual-write briefly.** For two hours, both the Redisson and Lettuce rate limiters were active so that throttling state didn't reset to empty on deploy. This wasn't a leaf; it was a deploy-time concern surfaced in P3a's verification. Documented in the MR description.
 - **Pre-existing flake observed but out of scope:** `WebhookDeliveryServiceTest.shouldRetryOnRedisOutage` was flaky on `develop` before this work started. Not introduced by this goal; tracked separately.
 - **Open questions resolved during the goal:**
   1. Lettuce vs Jedis (P1a) → Lettuce

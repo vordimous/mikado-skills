@@ -4,7 +4,7 @@ description: Execute ONE leaf from a Mikado goal end-to-end (pick leaf → imple
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, EnterWorktree, ExitWorktree, TodoWrite, AskUserQuestion
 ---
 
-# Mikado Loop — Single-Leaf Driver
+# Mikado Loop: Single-Leaf Driver
 
 One invocation = one leaf. When all leaves are done, exits with a signal so `/loop` can stop automatically.
 
@@ -12,29 +12,29 @@ One invocation = one leaf. When all leaves are done, exits with a signal so `/lo
 
 - Manual single step: `/mikado-loop`
 - Auto-pace through all remaining leaves: `/loop /mikado-loop`
-- Fixed cadence (rarely needed — leaves have variable duration): `/loop 15m /mikado-loop`
+- Fixed cadence (rarely needed, since leaves have variable duration): `/loop 15m /mikado-loop`
 
 When running inside `/loop`, fresh context each invocation is the point: it matches the Mikado-for-agents recommendation of one leaf per fresh session. Do NOT try to preserve session state between invocations via memory or conversation context; rely only on the graph file and git log.
 
 ## Locate the goal
 
-1. `ls .mikado/*.md 2>/dev/null` — if empty, stop with: "No Mikado goal found. Run `/mikado <goal>` first."
+1. `ls .mikado/*.md 2>/dev/null`. If empty, stop with: "No Mikado goal found. Run `/mikado <goal>` first."
 2. If one file, use it.
 3. If multiple, prefer the most recently modified. Display it in the opening status line so the user can override via argument: `/mikado-loop <slug>`.
 
 ## Exit-condition check (before doing any work)
 
 Read the goal file. If:
-- **All prerequisites checked AND goal's Status is not `Complete`**: the remaining work is the goal itself. Execute that as Phase 5 of the global `mikado` skill (final implementation), mark Status `Complete`, propose the final commit, and emit `MIKADO_LOOP_DONE: goal '<slug>' complete — run /mikado-mr to open MR` in the final output so `/loop` can detect completion.
-- **All prerequisites checked AND goal already Complete**: emit `MIKADO_LOOP_DONE: goal '<slug>' already complete — nothing to do` and exit.
+- **All prerequisites checked AND goal's Status is not `Complete`**: the remaining work is the goal itself. Execute that as Phase 5 of the global `mikado` skill (final implementation), mark Status `Complete`, propose the final commit, and emit `MIKADO_LOOP_DONE: goal '<slug>' complete; run /mikado-mr to open MR` in the final output so `/loop` can detect completion.
+- **All prerequisites checked AND goal already Complete**: emit `MIKADO_LOOP_DONE: goal '<slug>' already complete; nothing to do` and exit.
 - **Unchecked prereqs exist**: continue to the leaf loop below.
 
 ## Preflight (lightweight)
 
-Skip the full Phase 0 from the global skill — this skill runs often, so keep it tight:
+Skip the full Phase 0 from the global skill. This skill runs often, so keep it tight:
 
-1. `git status --short` — must be empty. If not, stop: "Working tree dirty. Commit or stash before running /mikado-loop."
-2. `git rev-parse --abbrev-ref HEAD` — must not be a protected branch. If it is, stop.
+1. `git status --short`. Must be empty. If not, stop: "Working tree dirty. Commit or stash before running /mikado-loop."
+2. `git rev-parse --abbrev-ref HEAD`. Must not be a protected branch. If it is, stop.
 3. Reconcile if out-of-band commits exist since Base commit (Phase 0.5 of the global skill). If reconciliation would require user input, stop and ask; do not silently alter the graph.
 
 ## Pick ONE leaf
@@ -82,7 +82,7 @@ When delegating, the subagent prompt must include:
 When the subagent returns:
 - If it reported sub-prerequisites: add them to the graph under the current leaf, commit `mikado: expand '<leaf>' into sub-prerequisites`, and exit. The next `/mikado-loop` invocation will pick the deepest leaf.
 - If it completed and committed the leaf: verify the commit landed (`git log -1 --oneline`), then update the graph to check the leaf off.
-- If it returned without committing (timeout, mid-test return, silent exit): verify its uncommitted work in the main session. If the acceptance criteria are met — modifications are coherent, narrow verification passes — commit the staged work directly with a conventional message and proceed to checkoff. If the work is incomplete or incoherent, `git restore` the uncommitted changes and re-delegate with a more constrained prompt. Do not spin a fresh subagent on top of half-finished work.
+- If it returned without committing (timeout, mid-test return, silent exit): verify its uncommitted work in the main session. If the acceptance criteria are met (modifications are coherent, narrow verification passes), commit the staged work directly with a conventional message and proceed to checkoff. If the work is incomplete or incoherent, `git restore` the uncommitted changes and re-delegate with a more constrained prompt. Do not spin a fresh subagent on top of half-finished work.
 
 ## Handle the commit
 
@@ -102,7 +102,7 @@ Stop the loop and surface to the user only when:
 - The options have materially different blast radii and no default is recorded
 - The question affects a leaf's commit in ways the user hasn't pre-approved
 
-A "stop on genuine ambiguity" rule beats "stop on any open question" — the latter interrupts end-to-end flow for decisions the user already made in the plan.
+A "stop on genuine ambiguity" rule beats "stop on any open question"; the latter interrupts end-to-end flow for decisions the user already made in the plan.
 
 ## Exit-signal output
 
@@ -110,7 +110,7 @@ End every invocation with one of these status lines on its own line, so `/loop` 
 
 - `MIKADO_LOOP_ADVANCE: leaf '<leaf>' completed; <N> prereqs remaining`
 - `MIKADO_LOOP_EXPAND: leaf '<leaf>' expanded into <M> sub-prereqs; <N> total remaining`
-- `MIKADO_LOOP_DONE: goal '<slug>' complete — run /mikado-mr to open MR`
+- `MIKADO_LOOP_DONE: goal '<slug>' complete; run /mikado-mr to open MR`
 - `MIKADO_LOOP_BLOCKED: <reason>` (dirty tree, reconcile conflict, genuine open question with no default, etc.)
 
 `MIKADO_LOOP_DONE` and `MIKADO_LOOP_BLOCKED` should stop further iterations. The `/loop` skill's self-pacing lets the model decide not to continue; include a clear "stop looping" signal when emitting these.
@@ -140,7 +140,7 @@ Keep it terse. The summary is read fast between iterations; long reports get ign
 
 ## Related skills
 
-- `mikado` — start the goal this skill advances
-- `mikado-mr` — call after `MIKADO_LOOP_DONE` to open the MR
-- `loop` (built-in) — the orchestrator; run `/loop /mikado-loop` for auto-pacing
-- `ralph-loop:ralph-loop` — NOT recommended here. Ralph re-feeds the same prompt into the same session, which accumulates context; that violates the fresh-session-per-leaf principle. Use the built-in `/loop` instead.
+- `mikado`: start the goal this skill advances
+- `mikado-mr`: call after `MIKADO_LOOP_DONE` to open the MR
+- `loop` (built-in): the orchestrator. Run `/loop /mikado-loop` for auto-pacing.
+- `ralph-loop:ralph-loop`: NOT recommended here. Ralph re-feeds the same prompt into the same session, which accumulates context; that violates the fresh-session-per-leaf principle. Use the built-in `/loop` instead.

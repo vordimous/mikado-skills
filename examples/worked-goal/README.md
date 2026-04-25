@@ -12,14 +12,14 @@ A sanitized example of what `.mikado/<slug>.md` looks like for a real, completed
 
 against a hypothetical Spring Boot platform. It shows:
 
-- **Frontmatter** — slug, ticket, base commit, commit strategy.
-- **Goal statement** — concrete, measurable, with implementation direction.
-- **Acceptance criteria** — what "done" looks like, in language reviewers can verify.
-- **Status** — current state of the goal.
-- **MR** — link back to the merge request once opened.
-- **Mermaid graph** — the prerequisite DAG, with `classDef` styling that distinguishes observed (from the naive experiment) vs anticipated (from the plan, confirmed later).
-- **Prerequisites** — checked-off list with file references, decisions made, and notes about what was folded together.
-- **Notes and learnings** — non-obvious facts about the codebase, pre-existing flakes, open questions and how they were resolved.
+- **Frontmatter:** slug, ticket, base commit, commit strategy.
+- **Goal statement:** concrete, measurable, with implementation direction.
+- **Acceptance criteria:** what "done" looks like, in language reviewers can verify.
+- **Status:** current state of the goal.
+- **MR:** link back to the merge request once opened.
+- **Mermaid graph:** the prerequisite DAG, with `classDef` styling that distinguishes observed (from the naive experiment) vs anticipated (from the plan, confirmed later).
+- **Prerequisites:** checked-off list with file references, decisions made, and notes about what was folded together.
+- **Notes and learnings:** non-obvious facts about the codebase, pre-existing flakes, open questions and how they were resolved.
 
 ## What to copy from this example
 

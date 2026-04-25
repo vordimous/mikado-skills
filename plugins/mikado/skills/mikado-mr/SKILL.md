@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion
 
 # Mikado MR
 
-Turns a completed Mikado goal into a merge or pull request proposal. The synthesis (title, body, graph) is forge-agnostic; the command shape adapts to the detected forge. This skill never runs the create command itself — it assembles the title, body, and command for the user to execute.
+Turns a completed Mikado goal into a merge or pull request proposal. The synthesis (title, body, graph) is forge-agnostic; the command shape adapts to the detected forge. This skill never runs the create command itself; it assembles the title, body, and command for the user to execute.
 
 ## When to use
 
@@ -21,13 +21,14 @@ If multiple `.mikado/*.md` files exist, the user can pass a slug: `/mikado-mr re
 1. **Detect the forge** from `git remote get-url origin`:
    - Host is `github.com` → forge is GitHub; CLI is `gh`.
    - Host contains `gitlab` (e.g. `gitlab.com`, self-hosted `gitlab.example.com`) → forge is GitLab; CLI is `glab`.
-   - Anything else → forge is unknown; fall through to manual mode (skip CLI auth check; render synthesis only).
+   - Environment variable `MIKADO_FORGE` is set to `github` or `gitlab` → use that, regardless of host. This is the override for self-hosted GitLab on a vanity domain (e.g. `code.company.com`) where the host string doesn't contain `gitlab`.
+   - Anything else → forge is unknown; fall through to manual mode (skip CLI auth check; render synthesis only). When falling through, log "forge unknown for host `<host>`; using manual mode. Set `MIKADO_FORGE=gitlab` (or `github`) to override." so the user knows why.
    If a CLI is selected, run `<cli> auth status`. If not authenticated, tell the user to run `<cli> auth login` and stop.
-2. `git status --short` — working tree must be clean. If dirty, ask the user to commit or stash first.
-3. `git rev-parse --abbrev-ref HEAD` — capture the source branch.
+2. `git status --short`. Working tree must be clean. If dirty, ask the user to commit or stash first.
+3. `git rev-parse --abbrev-ref HEAD`. Capture the source branch.
 4. Confirm the branch is fully pushed:
-   - `git rev-parse --abbrev-ref --symbolic-full-name @{u}` — must resolve to an upstream (e.g. `origin/feat/…`). If not, propose `git push -u origin <branch>` and stop.
-   - `git rev-list --count @{u}..HEAD` — must be `0`. A nonzero count means the branch is ahead of its upstream and the local commits aren't on the remote yet. Propose `git push` and stop.
+   - `git rev-parse --abbrev-ref --symbolic-full-name @{u}`. Must resolve to an upstream (e.g. `origin/feat/…`). If not, propose `git push -u origin <branch>` and stop.
+   - `git rev-list --count @{u}..HEAD`. Must be `0`. A nonzero count means the branch is ahead of its upstream and the local commits aren't on the remote yet. Propose `git push` and stop.
    - Both checks are required. The first only confirms a tracking ref exists; the second confirms HEAD matches.
 5. Find the goal file at `.mikado/<slug>.md` (or as supplied). Must exist.
 
@@ -60,17 +61,17 @@ From these, produce:
 - List of touched paths grouped by top-level directory
 - Total insertion/deletion stats
 
-Filter out commits whose subject starts with `mikado:` (graph-management commits) from the user-visible "Commit sequence" list, but keep their count as a parenthetical — `(plus N graph-management commits)`.
+Filter out commits whose subject starts with `mikado:` (graph-management commits) from the user-visible "Commit sequence" list, but keep their count as a parenthetical: `(plus N graph-management commits)`.
 
 ## Phase 3: Determine target branch
 
-Default to whatever branch the remote treats as default — usually `main` or `master`, but `develop` is common in teams that use a separate integration branch. Detect with:
+Default to whatever branch the remote treats as default. Usually `main` or `master`, but `develop` is common in teams that use a separate integration branch. Detect with:
 
 ```bash
 git remote show origin | sed -n '/HEAD branch/s/.*: //p'
 ```
 
-Confirm with the user before composing if the detected default isn't obviously right — ask with a single prompt showing the candidate.
+Confirm with the user before composing if the detected default isn't obviously right. Ask with a single prompt showing the candidate.
 
 ## Phase 3.5: Pick the request shape
 
@@ -106,7 +107,7 @@ git cherry-pick <sha1> <sha2> ...
 # user pushes, then opens the request for this cluster against the default branch
 ```
 
-The original goal branch stays intact as a working-tree record; cluster branches derive from it via cherry-pick. Each cluster's request is independent — merge order is flexible as long as logical dependencies are respected.
+The original goal branch stays intact as a working-tree record; cluster branches derive from it via cherry-pick. Each cluster's request is independent. Merge order is flexible as long as logical dependencies are respected.
 
 **Limitation:** cherry-picks can conflict if commits touch overlapping files. If a cluster needs commits from another cluster to apply cleanly, either merge the clusters or switch to stacked mode.
 
@@ -125,7 +126,7 @@ feat/<ticket>-p3  → feat/<ticket>-p2
 
 **Request creation:** GitHub uses `gh pr create --base <parent-branch>` directly; the chain is implicit in the base branch. GitLab uses `glab mr create --target-branch <parent-branch>` and an explicit dependency link via the GitLab API.
 
-**Merge policy warning:** if the team squash-merges, stacked requests break — when the parent merges into the default branch, the child's base branch still points at the (now-orphan) parent branch. The fix is `git rebase --onto <default> <old-parent> feat/<ticket>-p2`, but rebase is denied by default. Tell the user this will require manual rebase between merges.
+**Merge policy warning:** if the team squash-merges, stacked requests break. When the parent merges into the default branch, the child's base branch still points at the (now-orphan) parent branch. The fix is `git rebase --onto <default> <old-parent> feat/<ticket>-p2`, but rebase is denied by default. Tell the user this will require manual rebase between merges.
 
 **Do NOT choose stacked mode on a squash-merge team unless the user explicitly opts in and accepts the manual rebase cost.**
 
@@ -136,9 +137,9 @@ When the goal qualifies (≥5 prereqs OR ≥3 subsystems), show:
 ```
 This goal has <N> leaves across <M> subsystems. How do you want to ship it?
 
-  1. Single request (default) — one MR/PR, all leaves included. Simplest review.
-  2. Clustered requests — <K> independent requests by subsystem: <list>. Parallel review, works with squash-merge.
-  3. Stacked requests — <K> dependent requests, each targeting its parent. Not recommended for squash-merge teams.
+  1. Single request (default): one MR/PR, all leaves included. Simplest review.
+  2. Clustered requests: <K> independent requests by subsystem: <list>. Parallel review, works with squash-merge.
+  3. Stacked requests: <K> dependent requests, each targeting its parent. Not recommended for squash-merge teams.
 ```
 
 If the user picks 2 or 3, the subsequent phases produce multiple proposals instead of one.
@@ -183,7 +184,7 @@ If no ticket, use plain Conventional Commits:
 ## Test plan
 
 - [ ] <derived from notes + commit types; e.g. "Unit tests pass for api module">
-- [ ] <affected module verification — pulled from cross-module warnings in the graph if present>
+- [ ] <affected module verification (pulled from cross-module warnings in the graph if present)>
 - [ ] Manual smoke test on <relevant flow> if applicable
 
 ## Cross-module impact
@@ -260,7 +261,7 @@ EOF
 The skill still produces the synthesis. Show the title and body, give the user the manual steps:
 
 ```
-# Proposed request (manual mode — no forge CLI detected)
+# Proposed request (manual mode; no forge CLI detected)
 
 Title: <title>
 Target: <target-branch>
@@ -309,11 +310,11 @@ git switch -c <source-branch-2>
 <forge-appropriate create command for each request>
 ```
 
-For **stacked GitLab requests**, follow each `glab mr create` with a dependency link so the review UI shows the chain:
+For **stacked GitLab requests**, follow each `glab mr create` with a dependency link so the review UI shows the chain. The exact endpoint depends on the GitLab version (`/blocks` on recent versions, `/dependencies` on older ones); check the [GitLab MR API docs](https://docs.gitlab.com/api/merge_requests/) for the syntax that matches your instance:
 ```bash
-glab api projects/:id/merge_requests/<iid>/dependencies --method POST --field depends_on=<parent-iid>
+glab api projects/:id/merge_requests/<iid>/blocks --method POST --field blocking_merge_request_id=<parent-mr-id>
 ```
-GitHub stacked requests don't need a separate linking step — the chain is expressed by `--base <parent-branch>`.
+This API requires GitLab Premium or Ultimate. On GitLab Free or self-hosted CE, the call returns 403; in that case, fall back to a comment on each child MR linking to its parent ("Depends on !<parent-iid>") and skip the API call. GitHub stacked requests don't need a separate linking step. The chain is expressed by `--base <parent-branch>`.
 
 Each body is the same template as the single-request case, but:
 - `## Why` mentions which cluster this request covers and which sibling requests exist
@@ -323,9 +324,9 @@ Each body is the same template as the single-request case, but:
 
 ### Actions offered to the user
 
-1. **Run the commands now** — execute branch-creation, then the create command(s). Requires explicit confirmation; create is state-changing. For multi-request, confirm once for the whole batch.
-2. **Copy for manual execution** — default safer path when the user wants to inspect each command.
-3. **Revise** — change the cluster grouping, title, target, body, or collapse back to single-request mode.
+1. **Run the commands now.** Execute branch-creation, then the create command(s). Requires explicit confirmation; create is state-changing. For multi-request, confirm once for the whole batch.
+2. **Copy for manual execution.** Default safer path when the user wants to inspect each command.
+3. **Revise.** Change the cluster grouping, title, target, body, or collapse back to single-request mode.
 
 If the user chooses (1), execute the commands sequentially, reporting each request URL as it opens. If a command fails mid-batch, stop and report which succeeded.
 
@@ -333,7 +334,7 @@ If the user chooses (1), execute the commands sequentially, reporting each reque
 
 After a successful create:
 - Append the request URL to `.mikado/<slug>.md` under a new `## MR` section (heading kept as `MR` for stable anchor; the URL itself disambiguates GitHub vs GitLab).
-- Commit `mikado: record request link for '<slug>'` as a standalone commit. Don't amend the goal-complete commit — amending rewrites history and the user owns that path. A separate housekeeping commit is the safe default regardless of the goal's `folded`/`separate` setting.
+- Commit `mikado: record request link for '<slug>'` as a standalone commit. Don't amend the goal-complete commit; amending rewrites history and the user owns that path. A separate housekeeping commit is the safe default regardless of the goal's `folded`/`separate` setting.
 - Remind the user the housekeeping commit isn't pushed yet, since the skill never pushes.
 
 ## Draft + review cycle
@@ -363,5 +364,5 @@ Skip the draft cycle only for purely mechanical goals (e.g. dependency renames) 
 
 ## Related skills
 
-- `mikado` — produces the goal file this skill consumes
-- `mikado-loop` — drives the leaf loop that fills the goal file before this skill is invoked
+- `mikado`: produces the goal file this skill consumes
+- `mikado-loop`: drives the leaf loop that fills the goal file before this skill is invoked

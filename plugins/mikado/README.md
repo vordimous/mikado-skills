@@ -20,13 +20,13 @@ Invoke as `/mikado <goal-statement>` or `/mikado <path-to-spec.md>`.
 
 ### `/mikado-loop`
 
-Executes exactly one leaf end-to-end and exits. Designed for `/loop /mikado-loop` so you can let Claude work leaf-by-leaf with fresh context each invocation — the Mikado-for-agents recommendation of "one leaf per session."
+Executes exactly one leaf end-to-end and exits. Designed for `/loop /mikado-loop` so you can let Claude work leaf-by-leaf with fresh context each invocation, matching the Mikado-for-agents recommendation of "one leaf per session."
 
 Emits a status line at the end of each invocation that `/loop` can parse:
-- `MIKADO_LOOP_ADVANCE` — leaf done, more remain
-- `MIKADO_LOOP_EXPAND` — leaf was too big; expanded into sub-prereqs
-- `MIKADO_LOOP_DONE` — goal complete, run `/mikado-mr`
-- `MIKADO_LOOP_BLOCKED` — needs human input
+- `MIKADO_LOOP_ADVANCE`: leaf done, more remain
+- `MIKADO_LOOP_EXPAND`: leaf was too big; expanded into sub-prereqs
+- `MIKADO_LOOP_DONE`: goal complete, run `/mikado-mr`
+- `MIKADO_LOOP_BLOCKED`: needs human input
 
 ### `/mikado-mr`
 
@@ -39,9 +39,9 @@ Reads the completed `.mikado/<slug>.md` and synthesizes a merge or pull request 
 Never runs the create command itself without confirmation.
 
 Supports three request shapes:
-- **Single request** (default) — one MR/PR for the whole goal.
-- **Clustered requests** — one request per subsystem cluster (e.g. `common` / `ui` / `migration`), each targeting the main branch independently. Recommended for goals that span ≥3 subsystems.
-- **Stacked requests** — chain of requests where each targets its parent. Only for teams that don't squash-merge.
+- **Single request** (default): one MR/PR for the whole goal.
+- **Clustered requests:** one request per subsystem cluster (e.g. `common` / `ui` / `migration`), each targeting the main branch independently. Recommended for goals that span ≥3 subsystems.
+- **Stacked requests:** chain of requests where each targets its parent. Only for teams that don't squash-merge.
 
 ## How they compose
 
@@ -72,4 +72,4 @@ The full set of agent-safety properties (adapted from [GitButler's framework](ht
 
 ## Project conventions
 
-These three skills are deliberately project-agnostic. For project-specific conventions (build commands, ticket key formats, known flakes), put them in your project's `CLAUDE.md` — the skill reads it during Phase 0 preflight. The skill also auto-detects Gradle, npm, and pyproject-based projects without explicit configuration.
+These three skills are deliberately project-agnostic. For project-specific conventions (build commands, ticket key formats, known flakes), put them in your project's `CLAUDE.md`. The skill reads it during Phase 0 preflight. The skill also auto-detects Gradle, npm, and pyproject-based projects without explicit configuration.

@@ -32,9 +32,9 @@ Derive a short kebab-case slug from the goal for filenames. Example: "Remove Red
 - **One leaf per commit.** Do not bundle unrelated prerequisites.
 - **Update the graph before touching code.** The graph should always lead the code, not trail it.
 - **Revert is free.** If an experiment needs more than a handful of changes before you can run tests, you're probably fixing instead of experimenting. Exit and re-scope the leaf.
-- **Use the narrowest verification that proves the change.** For pure refactors (type swaps, renames, file deletions with verified zero references): compile-only is sufficient — skip tests. For logic changes: single-class `--tests <ClassName>` filter, not module-level. Module-level tests are a yellow flag requiring explicit justification. Full module suites run at the commit boundary before the MR, not per-leaf.
-- **Fold codegen byproducts into the producing leaf.** Auto-generated files (OpenAPI specs, API clients, lockfiles) regenerate deterministically from their source. When a leaf causes them to regenerate, stage and include them in the same commit as the leaf — do not create separate `chore: regenerate X` commits. The exception is when codegen regenerates on its own schedule (unrelated churn); that's the only case where a standalone regen commit is correct.
-- **Subagent timeout recovery.** If a subagent returns without committing (timed out mid-test, returned control prematurely, hit a silent error), verify its work in the main session before redelegating. If acceptance criteria are met — modified files are coherent, narrow test suite is green — commit the staged work directly. If the work is incomplete or incoherent, revert the uncommitted changes and re-delegate. Do not spin a fresh subagent on top of half-finished work.
+- **Use the narrowest verification that proves the change.** For pure refactors (type swaps, renames, file deletions with verified zero references): compile-only is sufficient; skip tests. For logic changes: single-class `--tests <ClassName>` filter, not module-level. Module-level tests are a yellow flag requiring explicit justification. Full module suites run at the commit boundary before the MR, not per-leaf.
+- **Fold codegen byproducts into the producing leaf.** Auto-generated files (OpenAPI specs, API clients, lockfiles) regenerate deterministically from their source. When a leaf causes them to regenerate, stage and include them in the same commit as the leaf; do not create separate `chore: regenerate X` commits. The exception is when codegen regenerates on its own schedule (unrelated churn); that's the only case where a standalone regen commit is correct.
+- **Subagent timeout recovery.** If a subagent returns without committing (timed out mid-test, returned control prematurely, hit a silent error), verify its work in the main session before redelegating. If acceptance criteria are met (modified files are coherent, narrow test suite is green), commit the staged work directly. If the work is incomplete or incoherent, revert the uncommitted changes and re-delegate. Do not spin a fresh subagent on top of half-finished work.
 
 ## Agent-safe git: six properties this skill upholds
 
@@ -44,15 +44,15 @@ Adapted from [GitButler's agent-safety framework](https://blog.gitbutler.com/age
 2. **Clear branch boundaries.** The skill never silently switches branches. Branch creation is allowed; branch switching is not. If a goal needs to move to a different base, stop and ask.
 3. **Explicit commit selection.** Stage specific files; never `git add -A` or `git add .`. The user sees each commit's diff stat before it lands.
 4. **Easy pre-push review.** The user owns `git push`. Every leaf commit is local until the user decides to publish. MR creation (`/mikado-mr`) also requires explicit confirmation.
-5. **Cheap rollback.** `git revert`, `git restore --staged`, and `git stash push`/`pop`/`apply` are all allowed so the skill can undo its own work without human friction. Destructive undo (`git reset --hard`, `git clean`, `git branch -D`, `git stash drop/clear`) stays denied — those lose data silently.
+5. **Cheap rollback.** `git revert`, `git restore --staged`, and `git stash push`/`pop`/`apply` are all allowed so the skill can undo its own work without human friction. Destructive undo (`git reset --hard`, `git clean`, `git branch -D`, `git stash drop/clear`) stays denied; those lose data silently.
 6. **Cross-branch damage prevention.** `git checkout -- <file>` is denied (use `git restore` instead, which is explicit about what it touches). `git switch -C` is denied (force-overwrites a branch pointer). `git clean` is denied (kills untracked files).
 
 ## Phase 0: Preflight
 
 Run in sequence:
 
-1. `git status --short` — must be empty. If not, ask the user to stash or commit before continuing.
-2. `git rev-parse --abbrev-ref HEAD` — must not be a protected branch (`main`, `master`, `develop`, `release/*`, `hotfix/*`). If it is, ask the user to create a feature branch first.
+1. `git status --short`. Must be empty. If not, ask the user to stash or commit before continuing.
+2. `git rev-parse --abbrev-ref HEAD`. Must not be a protected branch (`main`, `master`, `develop`, `release/*`, `hotfix/*`). If it is, ask the user to create a feature branch first.
 3. Detect build/test commands from project structure (and any conventions documented in `CLAUDE.md`):
    - `build.gradle` / `settings.gradle` → Gradle
    - `package.json` → npm/pnpm/yarn (check lockfile)
@@ -62,10 +62,10 @@ Run in sequence:
 
 ## Phase 0.5: Resume detection and reconciliation
 
-If `.mikado/<slug>.md` already exists, this is a resumed session. Before picking a leaf, **reconcile the graph with the actual branch state** — the user may have committed out-of-band since last session.
+If `.mikado/<slug>.md` already exists, this is a resumed session. Before picking a leaf, **reconcile the graph with the actual branch state**. The user may have committed out-of-band since last session.
 
 1. Read `.mikado/<slug>.md`. Note the `Base commit` and `Commit strategy`.
-2. `git log --oneline <base-commit>..HEAD` — list every commit since the goal started.
+2. `git log --oneline <base-commit>..HEAD`. List every commit since the goal started.
 3. For each commit, match its subject against the graph's prerequisite list:
    - If a commit looks like it implemented a still-unchecked prereq, flag it.
    - If a commit doesn't match any prereq, note it as an out-of-band change.
@@ -78,7 +78,7 @@ If `.mikado/<slug>.md` already exists, this is a resumed session. Before picking
 
 If the user resumes, apply any confirmed check-offs to the graph before Phase 4, and propose a single reconciliation commit (`mikado: reconcile graph with branch state`) if the graph changed.
 
-If the branch `HEAD` no longer contains the `Base commit` in its ancestry (force-pushed, rebased onto a different base), stop and ask the user how to proceed — do not silently mutate the graph.
+If the branch `HEAD` no longer contains the `Base commit` in its ancestry (force-pushed, rebased onto a different base), stop and ask the user how to proceed. Do not silently mutate the graph.
 
 ## Phase 1: Record the goal
 
@@ -92,7 +92,7 @@ Write `.mikado/<slug>.md` using this template (the outer four-backtick fence is 
 **Ticket:** <Jira/issue key if discoverable, else omit>
 **Build:** <build command>
 **Test:** <test command>
-**Commit strategy:** <unset — to be set on first leaf: separate|folded>
+**Commit strategy:** <unset; to be set on first leaf: separate|folded>
 **Base commit:** <SHA of feature branch HEAD when goal started>
 
 ## Status
@@ -122,11 +122,11 @@ Commit: `mikado: start goal '<slug>'`. Show the diff summary, then commit direct
 
 ## Phase 2: Naive experiment
 
-1. `EnterWorktree` — creates an isolated worktree off the current branch.
+1. `EnterWorktree`. Creates an isolated worktree off the current branch.
 2. Inside the worktree, attempt the goal the most obvious way. Do not try to be clever about prerequisites. The experiment is a sensor, not an implementation.
 3. Run the build; run the tests. Capture ALL failures: compile errors, test failures, runtime errors, lint warnings that would gate a commit.
 4. Do NOT attempt to fix anything. Collect signal only.
-5. `ExitWorktree` — discards all changes.
+5. `ExitWorktree`. Discards all changes.
 
 If the naive attempt passed on first try, the goal is itself a leaf. Jump to Phase 5.
 
@@ -163,9 +163,9 @@ Repeat until every prerequisite is checked.
 
 A leaf has no unchecked children. If multiple leaves exist, prefer one that unblocks the most parents or carries the least risk.
 
-Use `TodoWrite` to mirror the current leaf (and its siblings) as in-session todos. Do not mirror the entire graph — the graph file is the durable record.
+Use `TodoWrite` to mirror the current leaf (and its siblings) as in-session todos. Do not mirror the entire graph; the graph file is the durable record.
 
-### 4b. Size the leaf — main vs. subagent
+### 4b. Size the leaf: main vs. subagent
 
 Delegate to a subagent via the `Agent` tool when ANY of the following are true:
 - The leaf crosses subsystem boundaries (backend ↔ frontend, or different build modules with independent test suites)
@@ -196,7 +196,7 @@ If it's not obvious the leaf will apply cleanly, run a worktree experiment scope
 
 On the main tree, make the focused change. Run the narrowest verification that proves the change (see operating rule). For mechanical refactors, a targeted compile is often sufficient; avoid `:module:test` unless the leaf adds logic.
 
-**Flaky-test rule.** If a test fails on first run, re-run *only that one test* once. If it passes on the second run, record the test name and behavior in the `Notes and learnings` section (`Flaky: <test name> — <symptom>`) and continue. If it fails again, treat it as a real failure and either fix within this leaf (if trivial and in scope) or record a new sub-prerequisite and revert. Do not re-run more than once; chasing flakes at the leaf level burns the session.
+**Flaky-test rule.** If a test fails on first run, re-run *only that one test* once. If it passes on the second run, record the test name and behavior in the `Notes and learnings` section (`Flaky: <test name>: <symptom>`) and continue. If it fails again, treat it as a real failure and either fix within this leaf (if trivial and in scope) or record a new sub-prerequisite and revert. Do not re-run more than once; chasing flakes at the leaf level burns the session.
 
 ### 4e. Commit
 
@@ -211,7 +211,7 @@ Mark the leaf checked in `.mikado/<slug>.md`:
 - Append ` ✓` or strikethrough to the Mermaid node label (e.g. `P2a[Choose lock replacement ✓]`)
 
 Consult the `Commit strategy` front-matter field:
-- If `unset`: ask the user once — separate graph commit (`mikado: check off '<leaf>'`) or folded into the leaf's commit — then write the choice (`separate` or `folded`) to the front-matter and proceed.
+- If `unset`: ask the user once. Separate graph commit (`mikado: check off '<leaf>'`) or folded into the leaf's commit? Then write the choice (`separate` or `folded`) to the front-matter and proceed.
 - If `separate`: commit the leaf, then a follow-up graph commit.
 - If `folded`: single commit that includes both the code change and the graph update.
 
@@ -248,7 +248,7 @@ Default to single for small goals, clustered for large ones. Only use stacked wh
 
 - **Planning the graph up front.** The graph is discovered through experiments. If you find yourself writing prerequisites you haven't actually observed as failures, stop and experiment.
 - **Fixing during the naive attempt.** The urge is strong. Resist. Discard and record.
-- **Leaves that are too big.** A leaf that crosses clear subsystem boundaries or introduces a new abstraction is an unexpanded node — re-experiment on it. Pure mechanical edits that happen to span many files are not necessarily too big; judge by cognitive load rather than LOC or file count.
+- **Leaves that are too big.** A leaf that crosses clear subsystem boundaries or introduces a new abstraction is an unexpanded node; re-experiment on it. Pure mechanical edits that happen to span many files are not necessarily too big; judge by cognitive load rather than LOC or file count.
 - **Skipping reverts.** "I'll just keep this working code and clean up later" is how merges become disasters. The method's value comes from always returning to a known-good state between leaves.
 - **Graph drift.** The graph and code must match. If the user adds a commit out-of-band, reconcile the graph before the next leaf.
 - **Scope leaks between leaves.** A leaf that solves one prerequisite's symptom with a shim that touches an adjacent prerequisite's territory creates latent bugs (the FE shim displays legacy values correctly but the backend still sees them as unknown). If a leaf's implementation reaches into another prerequisite's scope, either fold the two leaves or stop and surface the leak as a sub-prerequisite.

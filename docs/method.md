@@ -26,7 +26,7 @@ Each leaf, when implemented in isolation, leaves the tree green. The tree is nev
 
 ## The artifact
 
-The artifact you produce is **the prerequisite graph**, not the experimental code. The experimental code is throwaway by design — its only purpose was to surface failures.
+The artifact you produce is **the prerequisite graph**, not the experimental code. The experimental code is throwaway by design; its only purpose was to surface failures.
 
 The graph captures everything you learned about the codebase. When the graph is complete and every node is checked off, the goal becomes the final leaf.
 
@@ -42,8 +42,8 @@ graph TD
 
 Two of the method's "rules" are notoriously hard for human developers:
 
-- **Don't fix during the naive experiment** — humans see a broken test and reach for the keyboard.
-- **Revert is free** — humans get attached to working code, even experimental code.
+- **Don't fix during the naive experiment.** Humans see a broken test and reach for the keyboard.
+- **Revert is free.** Humans get attached to working code, even experimental code.
 
 Agents don't have either problem. `git revert` is just a command. The naive experiment is just a sensor. Removing those two failure modes makes the method dramatically more effective with an agent than it ever was with humans alone.
 

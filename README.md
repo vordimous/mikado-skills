@@ -1,5 +1,9 @@
 # mikado-skills
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-7E5BEF.svg)](https://docs.claude.com/en/docs/claude-code/overview)
+[![Version](https://img.shields.io/badge/version-0.1.0-informational)](CHANGELOG.md)
+
 Mikado Method skills for [Claude Code](https://docs.claude.com/en/docs/claude-code/overview), packaged as a plugin.
 
 The Mikado Method turns large, scary refactors into a graph of small, reversible commits. You state a goal, attempt it naively in an isolated worktree, watch what breaks, and use those failures as your prerequisite list. You discard the experiment, record the prerequisites, and execute leaves one at a time on a real feature branch. The graph is the artifact; experiment code is throwaway.
@@ -10,11 +14,11 @@ These skills make that workflow native to Claude Code.
 
 Three composable skills under one plugin:
 
-- **`mikado`** — Start a goal. Run the naive experiment in a git worktree, analyze failures, record prerequisites in `.mikado/<slug>.md`, drive the leaf loop. Reverts are free; commits are small and explicit.
-- **`mikado-loop`** — Execute exactly one leaf end-to-end (pick → implement → commit → mark done) and stop. Designed to compose with the built-in `/loop` skill so you can run `/loop /mikado-loop` and let Claude advance leaf-by-leaf with fresh context per leaf.
-- **`mikado-mr`** — When the goal is complete, synthesize a merge or pull request from the graph and commit history. Detects the forge (GitHub or GitLab) from the git remote and proposes the appropriate `gh pr create` or `glab mr create` command; falls back to manual instructions for unknown forges. Never runs the create command without confirmation.
+- **`mikado`**: Start a goal. Run the naive experiment in a git worktree, analyze failures, record prerequisites in `.mikado/<slug>.md`, drive the leaf loop. Reverts are free; commits are small and explicit.
+- **`mikado-loop`**: Execute exactly one leaf end-to-end (pick → implement → commit → mark done) and stop. Designed to compose with the built-in `/loop` skill so you can run `/loop /mikado-loop` and let Claude advance leaf-by-leaf with fresh context per leaf.
+- **`mikado-mr`**: When the goal is complete, synthesize a merge or pull request from the graph and commit history. Detects the forge (GitHub or GitLab) from the git remote and proposes the appropriate `gh pr create` or `glab mr create` command; falls back to manual instructions for unknown forges. Never runs the create command without confirmation.
 
-For project-specific conventions (build commands, ticket key formats, known flakes), put them in your project's `CLAUDE.md` — the skill reads it during preflight. The skill also auto-detects Gradle/npm/pyproject build systems from the project structure.
+For project-specific conventions (build commands, ticket key formats, known flakes), put them in your project's `CLAUDE.md`. The skill reads it during preflight, and also auto-detects Gradle, npm, and pyproject build systems from the project structure.
 
 ## Installation
 
@@ -58,36 +62,9 @@ builds the title and body from the graph and the commits, detects your forge, an
 
 ## Why this exists
 
-The Mikado Method ([Daniel Brolund and Ola Ellnestam, 2014](https://mikadomethod.info/)) was designed for humans pair-programming on hard refactors. With AI agents, the parts that humans found tedious — committing the discipline of "revert and record" rather than "fix and continue" — become a strength: agents have no ego attached to the experiment, and `git revert` is cheap.
+The Mikado Method ([Daniel Brolund and Ola Ellnestam, 2014](https://mikadomethod.info/)) was designed for humans pair-programming on hard refactors. With AI agents, the parts that humans found tedious (committing to the discipline of "revert and record" rather than "fix and continue") become a strength: agents have no ego attached to the experiment, and `git revert` is cheap.
 
 I wrote about this in detail at [wellaged.dev/posts/mikado-method-ai-agents](https://wellaged.dev/posts/mikado-method-ai-agents/). These skills are the working implementation that backs that post.
-
-## Repository layout
-
-```
-mikado-skills/
-├── .claude-plugin/
-│   └── marketplace.json          Marketplace manifest (lists the mikado plugin)
-├── plugins/
-│   └── mikado/
-│       ├── .claude-plugin/
-│       │   └── plugin.json       Plugin manifest
-│       └── skills/
-│           ├── mikado/SKILL.md
-│           ├── mikado-loop/SKILL.md
-│           └── mikado-mr/SKILL.md
-├── examples/
-│   └── worked-goal/              Real .mikado/<slug>.md from a completed goal
-├── docs/
-│   ├── method.md                 The method, in 5 minutes
-│   └── installing.md             Install paths (marketplace, manual, dev)
-├── LICENSE
-└── README.md
-```
-
-## Status
-
-`v0.1.0`. The skills are in production use on a Java + Vue monorepo. The shape is stable; sharp edges are still being filed down. Issues and PRs welcome at [github.com/vordimous/mikado-skills](https://github.com/vordimous/mikado-skills).
 
 ## License
 
