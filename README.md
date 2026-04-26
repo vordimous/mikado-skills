@@ -40,13 +40,14 @@ That's it. The three skills are now available as `/mikado`, `/mikado-loop`, and 
 Claude will:
 
 1. Run preflight (clean tree, feature branch, build/test detection).
-2. Write `.mikado/remove-redisson.md` with the goal.
-3. Open a throwaway worktree and attempt the change naively.
-4. Discard the worktree; record every failure as a prerequisite in the Mermaid graph.
-5. Pick a leaf and implement it on your real feature branch.
-6. Commit one leaf, mark it checked, repeat.
+2. Print the Mikado ethos and ask for cadence / MR strategy / implementation choices.
+3. Write `.mikado/remove-redisson.md` with the goal.
+4. Open a throwaway worktree and attempt the change naively.
+5. Discard the worktree; record every failure as a prerequisite in the Mermaid graph.
+6. Pick a leaf and implement it on your real feature branch.
+7. Commit one leaf, mark it checked, repeat.
 
-The skill pauses at each phase boundary to ask for input (commit strategy, cadence, sub-prerequisite triage). See [docs/session-rhythm.md](docs/session-rhythm.md) for what to expect.
+The skill pauses at each phase boundary to ask for input (cadence and MR strategy chosen up front, then commit strategy, sub-prerequisite triage, and so on as the leaf loop progresses). See [docs/session-rhythm.md](docs/session-rhythm.md) for what to expect.
 
 `/mikado` drives the leaf loop in the same session by default, which is what you want if you'd rather review each commit before the next leaf starts. For power-through runs where you want fresh context per leaf instead of reviewing between commits, use the optional loop variant:
 

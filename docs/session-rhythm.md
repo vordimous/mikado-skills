@@ -4,7 +4,9 @@ The skill is interactive by design. It runs autonomously between checkpoints, th
 
 ## Before the experiment (Phases 0 to 2)
 
-After mechanical preflight (clean tree, valid branch), Claude pauses to derive and confirm the **testing plan** for this goal. The plan has three tiers (fast, targeted, regression), an optional affinity map, and a skip list. It is derived from existing repo context (`CLAUDE.md`, README, `package.json` scripts, `build.gradle` task names, etc.) so you do not need a permanent testing-strategy artifact in the repo. You sign off, amend, or add instructions before the naive experiment runs. Whatever you confirm is written into the goal file as a durable `## Testing plan` section that the leaf loop consults afterward.
+After mechanical preflight (clean tree, valid branch), Claude prints the **Mikado ethos preamble** (3 sentences on the discipline: graph leads code, revert is free, one leaf per commit) and asks for three configuration choices: cadence (where the leaf loop pauses), MR strategy (when MRs open), and implementation (who writes the code: AI or you). The choices are persisted to the goal file's front-matter and apply for the rest of the goal. Phase 0.5 suppresses the preamble and the prompts on resume; the values are read from the existing front-matter. Edit the front-matter directly if you want to change a value mid-goal.
+
+Then Claude pauses to derive and confirm the **testing plan** for this goal. The plan has three tiers (fast, targeted, regression), an optional affinity map, and a skip list. It is derived from existing repo context (`CLAUDE.md`, README, `package.json` scripts, `build.gradle` task names, etc.) so you do not need a permanent testing-strategy artifact in the repo. You sign off, amend, or add instructions before the naive experiment runs. Whatever you confirm is written into the goal file as a durable `## Testing plan` section that the leaf loop consults afterward.
 
 Confidence labels (high, medium, low) are the skill's honest read of how well the derived plan matches reality. Low confidence means the plan was inferred from ecosystem conventions with no project-specific signal. That is the moment to add testing instructions if you have any.
 
@@ -14,10 +16,9 @@ The naive worktree experiment runs without further input.
 
 ## At the leaf-loop handoff (Phase 3 to Phase 4)
 
-This is the longest pause in the session. The graph is built, the experiment is discarded, and Claude needs two answers before the leaf loop begins:
+The graph is built and the experiment is discarded. Cadence and MR strategy were already chosen in Phase 0.3, so the only remaining question at this handoff is:
 
 - **Commit strategy.** When a leaf is checked off, do you want the graph update in a *separate* follow-up commit (cleaner history, more commits), or *folded* into the leaf's commit (fewer commits, slightly noisier diffs)? The choice is written to the goal file's front-matter and reused for every remaining leaf without re-asking.
-- **Cadence.** Power through all leaves in this session, or drive them one-by-one and review between commits? If you want auto-pacing with a fresh context per leaf, run `/loop /mikado-loop` instead and let the loop skill drive.
 
 Claude will also propose a **suggested first leaf** with the reasoning (true leaf, unblocks the most parents, lowest risk). Confirm or redirect. Nothing is written until you say go.
 

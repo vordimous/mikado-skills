@@ -75,6 +75,69 @@ Run in sequence:
    - Polyglot repos: ask the user which subsystem the goal targets.
 4. Ensure `.mikado/` exists; create it if not.
 
+## Phase 0.3: Goal configuration
+
+Three configuration choices control rhythm and integration for this goal. Surface the **ethos preamble** first (so the user understands the discipline the choices sit on top of), then prompt for the three values, then persist them to the goal file's front-matter for Phase 4, mikado-loop, and mikado-mr to consult.
+
+If the goal file already exists (Phase 0.5 detects a resume), skip the preamble and the prompts entirely. Read the values from the existing front-matter and proceed.
+
+### Ethos preamble
+
+Print verbatim before the prompts:
+
+```
+Mikado in 30 seconds:
+  1. The graph leads the code; we never write a leaf without first observing
+     its prerequisite as a real failure.
+  2. Revert is free. The naive experiment is a sensor, not a draft.
+  3. One leaf per commit. The graph is the durable artifact, not the code.
+
+Three configuration choices follow. They control rhythm and integration,
+not the discipline above.
+```
+
+### Prompts
+
+Ask three questions, in this order:
+
+1. **Cadence** (`continuous` | `per-leaf` | `per-cluster`): where the leaf loop pauses for review.
+   - `per-leaf`: pause after every leaf commit. Best for review-heavy workflows.
+   - `per-cluster`: pause after the last leaf in each graph cluster (subtree under a direct goal-child). Natural cohesion boundary.
+   - `continuous`: no per-leaf or per-cluster pauses; only stop for sub-prereq discoveries, test failures requiring fix-vs-revert, or goal completion. Best paired with `MR strategy: at-goal` and `/loop /mikado-loop`.
+2. **MR strategy** (`per-leaf` | `per-cluster` | `at-goal`): when the skill opens MRs.
+   - `per-leaf`: each leaf gets its own sub-branch and sub-MR targeting the goal branch.
+   - `per-cluster`: each cluster gets its own sub-branch and sub-MR targeting the goal branch.
+   - `at-goal`: single MR at goal completion targeting main/develop. The default for small-to-medium goals.
+3. **Implementation** (`ai-implements` | `coach`): who writes the code.
+   - `ai-implements`: Claude writes, runs tests, and commits each leaf.
+   - `coach`: Claude builds the graph, runs the naive experiment, runs the testing-plan tiers, and prepares a research brief per leaf. The user writes and commits the code.
+
+When `Implementation: coach` is selected, omit `Cadence: continuous` from the cadence options (coach mode requires user input at each leaf, so unbroken running is incoherent).
+
+### Persistence
+
+Write the agreed values to the goal file's front-matter (added in Phase 1):
+
+```
+**Cadence:** <value>
+**MR strategy:** <value>
+**Implementation:** <value>
+```
+
+The values are read by:
+- Phase 4 (leaf loop) for cadence and implementation branching.
+- mikado-loop for cadence honoring under `/loop /mikado-loop`.
+- mikado-mr for sub-MR targeting and final-MR shape.
+
+### Phase A scope (current release)
+
+The configuration prompts are wired in, but only one combination is fully implemented in the current release:
+
+- **Fully supported:** `Cadence: per-leaf` + `MR strategy: at-goal` + `Implementation: ai-implements` (today's behavior).
+- **Captured in front-matter, prompt allowed, downstream behavior not yet wired:** every other combination.
+
+When the leaf loop, mikado-loop, or mikado-mr encounters a combination outside the supported scope, print a one-line warning at the first relevant boundary (e.g. "Cadence: per-cluster is not yet wired; falling back to per-leaf for this release") and proceed with today's behavior. Subsequent phases activate the remaining combinations.
+
 ## Phase 0.4: Testing plan
 
 The leaf loop runs verification after every leaf. Without an explicit plan for what runs when, the skill either burns minutes on broad suites per leaf or under-tests and ships regressions. Derive a tiered plan from existing repo context, show it to the user, and get signoff before any experiment runs.
@@ -136,7 +199,9 @@ Low confidence is not a blocker. It's a signal to the user that this is the mome
 
 If `.mikado/<slug>.md` already exists, this is a resumed session. Before picking a leaf, **reconcile the graph with the actual branch state**. The user may have committed out-of-band since last session.
 
-1. Read `.mikado/<slug>.md`. Note the `Base commit` and `Commit strategy`.
+Phase 0.3 (ethos preamble and configuration prompts) is suppressed on resume; the values for `Cadence`, `MR strategy`, and `Implementation` are read from the existing front-matter. If the user wants to change a value mid-goal, they edit the front-matter directly and the skill picks up the new value at the next leaf boundary.
+
+1. Read `.mikado/<slug>.md`. Note the `Base commit`, `Commit strategy`, `Cadence`, `MR strategy`, and `Implementation`.
 2. `git log --oneline <base-commit>..HEAD`. List every commit since the goal started.
 3. For each commit, match its subject against the graph's prerequisite list:
    - If a commit looks like it implemented a still-unchecked prereq, flag it.
@@ -184,6 +249,9 @@ Write `.mikado/<slug>.md` using this template (the outer four-backtick fence is 
 **Started:** <ISO 8601 date>
 **Ticket:** <Jira/issue key if discoverable, else omit>
 **Source plan:** <relative path to ingested spec file; omit this line entirely if direct prose goal>
+**Cadence:** <continuous|per-leaf|per-cluster>
+**MR strategy:** <per-leaf|per-cluster|at-goal>
+**Implementation:** <ai-implements|coach>
 **Commit strategy:** <unset; to be set on first leaf: separate|folded>
 **Base commit:** <SHA of feature branch HEAD when goal started>
 
@@ -310,6 +378,8 @@ Commit: `mikado: record prerequisites from naive attempt`. Show the diff summary
 ## Phase 4: Leaf loop
 
 Repeat until every prerequisite is checked.
+
+Before entering the loop, read `Cadence`, `MR strategy`, and `Implementation` from the goal file's front-matter (set in Phase 0.3). The current release fully wires only the `per-leaf` + `at-goal` + `ai-implements` combination. For any other combination, print a one-line warning at the first relevant boundary (e.g. "Cadence: per-cluster is not yet wired in this release; falling back to per-leaf") and proceed with the fully-supported behavior. Do not block; do not re-prompt. Subsequent phases (B for `coach`, C for `per-cluster` / `continuous`, D for sub-MR strategies) wire the remaining combinations.
 
 ### 4a. Pick a leaf
 
