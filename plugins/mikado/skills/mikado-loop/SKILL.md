@@ -36,6 +36,7 @@ Skip the full Phase 0 from the global skill. This skill runs often, so keep it t
 1. `git status --short`. Must be empty. If not, stop: "Working tree dirty. Commit or stash before running /mikado-loop."
 2. `git rev-parse --abbrev-ref HEAD`. Must not be a protected branch. If it is, stop.
 3. Reconcile if out-of-band commits exist since Base commit (Phase 0.5 of the global skill). If reconciliation would require user input, stop and ask; do not silently alter the graph.
+4. Read `Cadence`, `MR strategy`, and `Implementation` from the goal file's front-matter (set in `mikado/SKILL.md` Phase 0.3). The current release fully wires only `Cadence: per-leaf` + `MR strategy: at-goal` + `Implementation: ai-implements`. For any other combination, print a one-line fallback warning naming the field (e.g. "Implementation: coach is not yet wired in this release; falling back to ai-implements") and proceed with the supported behavior. Do not block. Subsequent phases (B for `coach`, C for `per-cluster` / `continuous`, D for sub-MR strategies) wire the remaining combinations.
 
 ## Pick ONE leaf
 

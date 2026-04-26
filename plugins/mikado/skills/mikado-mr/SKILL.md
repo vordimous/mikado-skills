@@ -39,6 +39,7 @@ Read `.mikado/<slug>.md`. Extract:
 - Ticket (front-matter, if present)
 - Source plan path (front-matter, if present; goes into the MR body's Why section as "Plan: `<path>`" so reviewers can find the source doc)
 - Base commit (front-matter)
+- `MR strategy` (front-matter, if present; controls Phase 3.5 below — `at-goal` skips the Phase 3.5 prompt and proceeds with single-request shape, `per-cluster` / `per-leaf` are deferred to Phase D and currently fall back with a warning)
 - Acceptance section (bullets, if present)
 - Mermaid graph
 - Prerequisite checklist (with done/pending status)
@@ -76,6 +77,14 @@ git remote show origin | sed -n '/HEAD branch/s/.*: //p'
 Confirm with the user before composing if the detected default isn't obviously right. Ask with a single prompt showing the candidate.
 
 ## Phase 3.5: Pick the request shape
+
+If the goal file's front-matter has `MR strategy` set (added by mikado/SKILL.md Phase 0.3), use it instead of asking. Mapping for the current release:
+
+- `MR strategy: at-goal` → single request (as below). Skip the Phase 3.5 prompt entirely and proceed.
+- `MR strategy: per-cluster` → clustered requests are deferred to Phase D. Print a one-line warning ("MR strategy: per-cluster is not yet wired in this release; falling back to single request"), then proceed with single-request shape. Do not re-prompt the user.
+- `MR strategy: per-leaf` → per-leaf sub-MRs are deferred to Phase D. Print the same fallback warning and proceed with single-request shape.
+
+If the goal file has no `MR strategy` field (older goal files predating Phase 0.3), fall through to the prompt below.
 
 Three options; offer them explicitly when the goal is non-trivial (≥5 prereqs, or touches ≥3 subsystems by commit scope):
 

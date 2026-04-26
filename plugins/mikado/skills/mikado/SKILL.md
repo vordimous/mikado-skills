@@ -98,19 +98,19 @@ not the discipline above.
 
 ### Prompts
 
-Ask three questions, in this order:
+Ask three questions, in this order. Annotate each option with its release status: **(supported)** for the fully-wired path, **(experimental, falls back to <default> in this release)** for options whose downstream behavior is deferred to Phase B/C/D.
 
 1. **Cadence** (`continuous` | `per-leaf` | `per-cluster`): where the leaf loop pauses for review.
-   - `per-leaf`: pause after every leaf commit. Best for review-heavy workflows.
-   - `per-cluster`: pause after the last leaf in each graph cluster (subtree under a direct goal-child). Natural cohesion boundary.
-   - `continuous`: no per-leaf or per-cluster pauses; only stop for sub-prereq discoveries, test failures requiring fix-vs-revert, or goal completion. Best paired with `MR strategy: at-goal` and `/loop /mikado-loop`.
+   - `per-leaf` **(supported)**: pause after every leaf commit. Best for review-heavy workflows.
+   - `per-cluster` **(experimental, falls back to per-leaf in this release)**: pause after the last leaf in each graph cluster (subtree under a direct goal-child). Natural cohesion boundary; full behavior arrives in Phase C.
+   - `continuous` **(experimental, falls back to per-leaf in this release)**: no per-leaf or per-cluster pauses; only stop for sub-prereq discoveries, test failures requiring fix-vs-revert, or goal completion. Best paired with `MR strategy: at-goal` and `/loop /mikado-loop`. Full behavior arrives in Phase C.
 2. **MR strategy** (`per-leaf` | `per-cluster` | `at-goal`): when the skill opens MRs.
-   - `per-leaf`: each leaf gets its own sub-branch and sub-MR targeting the goal branch.
-   - `per-cluster`: each cluster gets its own sub-branch and sub-MR targeting the goal branch.
-   - `at-goal`: single MR at goal completion targeting main/develop. The default for small-to-medium goals.
+   - `at-goal` **(supported)**: single MR at goal completion targeting main/develop. The default for small-to-medium goals.
+   - `per-cluster` **(experimental, falls back to at-goal in this release)**: each cluster gets its own sub-branch and sub-MR targeting the goal branch. Full behavior arrives in Phase D.
+   - `per-leaf` **(experimental, falls back to at-goal in this release)**: each leaf gets its own sub-branch and sub-MR targeting the goal branch. Full behavior arrives in Phase D.
 3. **Implementation** (`ai-implements` | `coach`): who writes the code.
-   - `ai-implements`: Claude writes, runs tests, and commits each leaf.
-   - `coach`: Claude builds the graph, runs the naive experiment, runs the testing-plan tiers, and prepares a research brief per leaf. The user writes and commits the code.
+   - `ai-implements` **(supported)**: Claude writes, runs tests, and commits each leaf.
+   - `coach` **(experimental, falls back to ai-implements in this release)**: Claude builds the graph, runs the naive experiment, runs the testing-plan tiers, and prepares a research brief per leaf. The user writes and commits the code. Full behavior arrives in Phase B.
 
 When `Implementation: coach` is selected, omit `Cadence: continuous` from the cadence options (coach mode requires user input at each leaf, so unbroken running is incoherent).
 
@@ -249,6 +249,7 @@ Write `.mikado/<slug>.md` using this template (the outer four-backtick fence is 
 **Started:** <ISO 8601 date>
 **Ticket:** <Jira/issue key if discoverable, else omit>
 **Source plan:** <relative path to ingested spec file; omit this line entirely if direct prose goal>
+**Skill version:** <semver of the mikado plugin at goal-creation time, e.g. 0.2.0>
 **Cadence:** <continuous|per-leaf|per-cluster>
 **MR strategy:** <per-leaf|per-cluster|at-goal>
 **Implementation:** <ai-implements|coach>
@@ -309,6 +310,8 @@ graph TD
 ````
 
 `Base commit` is the `git rev-parse HEAD` at the moment of goal creation. It anchors resume-time reconciliation (Phase 0.5) against the commits produced since.
+
+`Skill version` records the mikado plugin's semver at goal-creation time. Read it at resume to detect schema mismatches: if the current plugin version is newer than the stored value, log "goal file written with v<old>; current plugin is v<new>" and proceed. If a future migration is required, the version field is the trigger.
 
 `Commit strategy` stays `unset` until the first leaf is completed; on that leaf, ask the user whether to keep graph updates as a separate commit (`separate`) or fold them into the leaf's commit (`folded`), then update this field. For every subsequent leaf, follow the recorded strategy without re-asking.
 
