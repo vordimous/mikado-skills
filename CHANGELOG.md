@@ -2,6 +2,13 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] (2026-04-28)
+
+### Fixed
+
+- **Phase 0.1 / Phase 0.4 permission patterns:** prefix patterns are now written as `Bash(<prefix> :*)` (with the space before `:*`) to match Claude Code's expected format. v0.3.0 wrote them without the space, so the patterns the skill auto-added to `.claude/settings.local.json` failed to match at runtime and the operator was still prompted mid-loop for things like `git worktree add`. All known-set entries (code research, git read/write, worktree management) and Phase 0.4 derived examples now use the correct format. Added `Bash(git worktree prune :*)` and `Bash(mkdir :*)` for cleanup and fallback-path creation.
+- **Mermaid graph dark-mode contrast:** the `classDef observed` and `classDef anticipated` styles in the Phase 1 goal-file template, the Phase 3 example, and the worked-goal example used pale pastel fills (`#e8f5e9`, `#fff3e0`) with no explicit text color. In dark Mermaid themes (e.g. GitHub dark mode), the default white text rendered illegibly on those pale fills. Switched to dark-saturated fills (`#2e7d32`, `#e65100`) with explicit white text and brighter accent strokes; readable on both light and dark canvases. Existing goal files keep their old colors; only new goals pick up the new template.
+
 ## [0.3.1] (2026-04-28)
 
 ### Fixed

@@ -59,8 +59,8 @@ graph TD
   P5 --> P4
   G --> P6[Remove redisson-specific config properties from application.yml ✓]
 
-  classDef observed fill:#e8f5e9,stroke:#2e7d32
-  classDef anticipated fill:#fff3e0,stroke:#e65100,stroke-dasharray: 5 5
+  classDef observed fill:#2e7d32,stroke:#66bb6a,stroke-width:2px,color:#ffffff
+  classDef anticipated fill:#e65100,stroke:#ff9800,stroke-width:2px,color:#ffffff,stroke-dasharray:5 5
   class P1,P1a,P2,P3 observed
   class P3a,P4,P5,P6 anticipated
 ```

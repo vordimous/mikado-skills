@@ -1,7 +1,7 @@
 {
   "name": "mikado",
   "description": "Mikado Method skills for Claude Code: discover prerequisites for large refactors by experiment, drive leaves with /loop, ship via merge or pull request.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "author": {
     "name": "Aaron Danelz"
   },

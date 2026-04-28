@@ -85,10 +85,12 @@ The leaf loop will repeatedly invoke a known set of Bash patterns (code research
 
 These patterns cover the skill's needs across the entire goal lifecycle:
 
-- **Code research:** `Bash(grep:*)`, `Bash(find:*)`, `Bash(ls:*)`, `Bash(rg:*)`
-- **Git read-only:** `Bash(git status:*)`, `Bash(git log:*)`, `Bash(git diff:*)`, `Bash(git rev-parse:*)`, `Bash(git rev-list:*)`, `Bash(git show:*)`, `Bash(git branch:*)`, `Bash(git remote:*)`, `Bash(git worktree list:*)`
-- **Git write (per the operating rules):** `Bash(git add :*)`, `Bash(git commit:*)`, `Bash(git restore:*)`, `Bash(git stash:*)`, `Bash(git revert:*)`, `Bash(git cherry-pick:*)`, `Bash(git switch -c :*)` (creation only; the bare `Bash(git switch:*)` would also permit `-C` force-switch and conflict with the operating rules)
-- **Worktree management:** `Bash(git worktree add:*)`, `Bash(git worktree remove:*)`
+**Permission pattern format:** Claude Code uses `Bash(<command-prefix> :*)` for prefix matching, with a space before `:*`. Example from the global CLAUDE.md: `Bash(python3 -c :*)`. Write patterns this way exactly; do not collapse the space.
+
+- **Code research:** `Bash(grep :*)`, `Bash(find :*)`, `Bash(ls :*)`, `Bash(rg :*)`
+- **Git read-only:** `Bash(git status :*)`, `Bash(git log :*)`, `Bash(git diff :*)`, `Bash(git rev-parse :*)`, `Bash(git rev-list :*)`, `Bash(git show :*)`, `Bash(git branch :*)`, `Bash(git remote :*)`, `Bash(git worktree list :*)`
+- **Git write (per the operating rules):** `Bash(git add :*)`, `Bash(git commit :*)`, `Bash(git restore :*)`, `Bash(git stash :*)`, `Bash(git revert :*)`, `Bash(git cherry-pick :*)`, `Bash(git switch -c :*)` (creation only; the bare `Bash(git switch :*)` would also permit `-C` force-switch and conflict with the operating rules)
+- **Worktree management:** `Bash(git worktree add :*)`, `Bash(git worktree remove :*)`, `Bash(git worktree prune :*)`, `Bash(mkdir :*)` (parent-directory creation for the fallback worktree path)
 
 Test runner patterns (`./gradlew test`, `npm test`, `pytest`, etc.) are intentionally **not** in this set. They depend on the testing-plan signoff in Phase 0.4 and are handled by that phase.
 
@@ -268,11 +270,11 @@ The user can confirm as-is, edit any line, add affinity rules, or override the s
 After signoff and before writing the plan to the goal file, run the same diff-and-prompt flow as Phase 0.1, scoped to the test commands the user just confirmed:
 
 1. Extract the concrete commands: fast tier, targeted tier base command (without filters), regression tier.
-2. Derive the matching Bash permission pattern for each. Examples:
-   - `./gradlew test --tests Foo` → `Bash(./gradlew test:*)`
-   - `npm test -- --watch=false` → `Bash(npm test:*)`
-   - `pytest -k Billing` → `Bash(pytest:*)`
-   - `./gradlew compileJava` → `Bash(./gradlew compileJava:*)`
+2. Derive the matching Bash permission pattern for each (use the same `Bash(<prefix> :*)` format as Phase 0.1):
+   - `./gradlew test --tests Foo` → `Bash(./gradlew test :*)`
+   - `npm test -- --watch=false` → `Bash(npm test :*)`
+   - `pytest -k Billing` → `Bash(pytest :*)`
+   - `./gradlew compileJava` → `Bash(./gradlew compileJava :*)`
 3. Diff against the now-updated allowlist (Phase 0.1 already covered code research and git ops).
 4. If gaps exist, prompt with the same language as Phase 0.1 (including the session-restart caveat) and write to `.claude/settings.local.json` on `y`.
 
@@ -423,8 +425,8 @@ graph TD
   G((Goal: <short restatement>))
   <if anticipated prereqs were ingested in Phase 0.75, add `G --> P1[<task 1>]`, `G --> P2[<task 2>]`, etc., one per ingested task>
 
-  classDef observed fill:#e8f5e9,stroke:#2e7d32
-  classDef anticipated fill:#fff3e0,stroke:#e65100,stroke-dasharray: 5 5
+  classDef observed fill:#2e7d32,stroke:#66bb6a,stroke-width:2px,color:#ffffff
+  classDef anticipated fill:#e65100,stroke:#ff9800,stroke-width:2px,color:#ffffff,stroke-dasharray:5 5
   <if anticipated prereqs were ingested, add `class P1,P2,... anticipated` listing all ingested node IDs>
 ```
 
@@ -516,8 +518,8 @@ graph TD
   G --> P3[Drop Redisson cache manager]
   P2 --> P2a[Choose lock replacement]
 
-  classDef observed fill:#e8f5e9,stroke:#2e7d32
-  classDef anticipated fill:#fff3e0,stroke:#e65100,stroke-dasharray: 5 5
+  classDef observed fill:#2e7d32,stroke:#66bb6a,stroke-width:2px,color:#ffffff
+  classDef anticipated fill:#e65100,stroke:#ff9800,stroke-width:2px,color:#ffffff,stroke-dasharray:5 5
   class P1,P2,P2a observed
   class P3 anticipated
 ```
