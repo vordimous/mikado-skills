@@ -18,19 +18,31 @@ If multiple `.mikado/*.md` files exist, the user can pass a slug: `/mikado-mr re
 
 ## Preflight
 
-1. **Detect the forge** from `git remote get-url origin`:
+1. **Locate the goal file.** First check `.mikado/<slug>.md` (or as supplied) in the current checkout. If absent, scan `git worktree list --porcelain` for sibling worktrees containing `.mikado/<slug>.md`. If a sibling worktree owns the goal, stop with:
+
+   ```
+   Goal lives in worktree:
+     <path>  goal: <slug>  branch: <branch>
+   Run /mikado-mr from inside the goal worktree:
+     cd <path>
+   ```
+
+   If no goal is found anywhere, stop with: `No Mikado goal found. Run /mikado <goal> first.`
+2. **Workspace check.** Read `Workspace` and `Worktree path` from the goal file's front-matter.
+   - If `Workspace: worktree`: run `git rev-parse --show-toplevel` and compare against `Worktree path`. If they don't match, the operator is in a sibling checkout (not the goal worktree). Stop with: `Run /mikado-mr from inside the goal worktree at <path>. cd there and re-run.`
+   - If `Workspace: in-place` or the field is missing (older goal file): no check; continue.
+3. **Detect the forge** from `git remote get-url origin`:
    - Host is `github.com` → forge is GitHub; CLI is `gh`.
    - Host contains `gitlab` (e.g. `gitlab.com`, self-hosted `gitlab.example.com`) → forge is GitLab; CLI is `glab`.
    - Environment variable `MIKADO_FORGE` is set to `github` or `gitlab` → use that, regardless of host. This is the override for self-hosted GitLab on a vanity domain (e.g. `code.company.com`) where the host string doesn't contain `gitlab`.
    - Anything else → forge is unknown; fall through to manual mode (skip CLI auth check; render synthesis only). When falling through, log "forge unknown for host `<host>`; using manual mode. Set `MIKADO_FORGE=gitlab` (or `github`) to override." so the user knows why.
    If a CLI is selected, run `<cli> auth status`. If not authenticated, tell the user to run `<cli> auth login` and stop.
-2. `git status --short`. Working tree must be clean. If dirty, ask the user to commit or stash first.
-3. `git rev-parse --abbrev-ref HEAD`. Capture the source branch.
-4. Confirm the branch is fully pushed:
+4. `git status --short`. Working tree must be clean. If dirty, ask the user to commit or stash first.
+5. `git rev-parse --abbrev-ref HEAD`. Capture the source branch.
+6. Confirm the branch is fully pushed:
    - `git rev-parse --abbrev-ref --symbolic-full-name @{u}`. Must resolve to an upstream (e.g. `origin/feat/…`). If not, propose `git push -u origin <branch>` and stop.
    - `git rev-list --count @{u}..HEAD`. Must be `0`. A nonzero count means the branch is ahead of its upstream and the local commits aren't on the remote yet. Propose `git push` and stop.
    - Both checks are required. The first only confirms a tracking ref exists; the second confirms HEAD matches.
-5. Find the goal file at `.mikado/<slug>.md` (or as supplied). Must exist.
 
 ## Phase 1: Load and validate the goal
 
@@ -40,6 +52,9 @@ Read `.mikado/<slug>.md`. Extract:
 - Source plan path (front-matter, if present; goes into the MR body's Why section as "Plan: `<path>`" so reviewers can find the source doc)
 - Base commit (front-matter)
 - `MR strategy` (front-matter, if present; controls Phase 3.5 below — `at-goal` skips the Phase 3.5 prompt and proceeds with single-request shape, `per-cluster` / `per-leaf` are deferred to Phase D and currently fall back with a warning)
+- `Workspace`, `Worktree path` (front-matter, if present; consulted by the workspace check in Preflight step 2)
+- `Source branch` (front-matter, if present; offered as an alternative MR target in Phase 3 when `Workspace: worktree`)
+- `MR target` (front-matter, if present; if set, Phase 3 uses it without re-prompting)
 - Acceptance section (bullets, if present)
 - Mermaid graph
 - Prerequisite checklist (with done/pending status)
@@ -68,13 +83,25 @@ Filter out commits whose subject starts with `mikado:` (graph-management commits
 
 ## Phase 3: Determine target branch
 
-Default to whatever branch the remote treats as default. Usually `main` or `master`, but `develop` is common in teams that use a separate integration branch. Detect with:
+If the goal file's front-matter has `MR target` set (written by a previous run of mikado-mr), use that value and skip the prompt below.
+
+Otherwise, the default candidate is the remote's default branch. Usually `main` or `master`, but `develop` is common in teams that use a separate integration branch. Detect with:
 
 ```bash
 git remote show origin | sed -n '/HEAD branch/s/.*: //p'
 ```
 
-Confirm with the user before composing if the detected default isn't obviously right. Ask with a single prompt showing the candidate.
+**If `Workspace: worktree`**, the goal file also records a `Source branch` (the branch the operator was on when Phase 1 ran). Offer a one-time choice:
+
+```
+Target branch?
+  a) <remote-default>    (default; integrate via the standard MR review path)
+  b) <Source branch>     (target your own feature branch; you handle the integration to <remote-default> separately)
+```
+
+Default to (a). Record the chosen branch in the goal file's front-matter as `**MR target:** <branch>` so subsequent re-runs use it without re-asking.
+
+If `Workspace: in-place` or the goal file has no `Source branch`, just confirm the remote-default candidate with a single prompt and proceed.
 
 ## Phase 3.5: Pick the request shape
 

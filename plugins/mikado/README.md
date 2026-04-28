@@ -9,8 +9,11 @@ Three composable skills that implement the [Mikado Method](https://mikadomethod.
 Starts a Mikado goal. Drives the full method:
 
 - Phase 0: preflight (clean tree, feature branch, build/test detection).
+- Phase 0.1: permission preflight (diff Bash patterns the skill needs against your allowlists; offer to write missing patterns to `.claude/settings.local.json`).
+- Phase 0.3: goal configuration (cadence, MR strategy, implementation; workspace announced).
+- Phase 0.4: testing plan (derive tiered fast/targeted/regression commands, signoff, second permission diff for test runners).
 - Phase 0.5: resume detection if `.mikado/<slug>.md` already exists.
-- Phase 1: record the goal in `.mikado/<slug>.md` with frontmatter, Mermaid graph stub, prereq checklist.
+- Phase 1: record the goal in `.mikado/<slug>.md`. For `ai-implements`, create a sibling worktree on `mikado/<slug>` and write the goal file inside it; the main checkout stays untouched.
 - Phase 2: naive experiment in a git worktree. Run, capture failures, discard.
 - Phase 3: convert failures into prerequisites; commit `mikado: record prerequisites from naive attempt`.
 - Phase 4: leaf loop. Pick a leaf, implement on the feature branch, commit, mark checked, repeat.
@@ -27,6 +30,10 @@ Emits a status line at the end of each invocation that `/loop` can parse:
 - `MIKADO_LOOP_EXPAND`: leaf was too big; expanded into sub-prereqs
 - `MIKADO_LOOP_DONE`: goal complete, run `/mikado-mr`
 - `MIKADO_LOOP_BLOCKED`: needs human input
+
+The exit signals tell `/loop` whether to fire immediately (`ADVANCE` / `EXPAND`) or stop (`DONE` / `BLOCKED`). If your orchestrator ignores the contract and self-paces with long idle delays, use `/loop 60s /mikado-loop` to cap idle time at 60s per leaf.
+
+When the goal was started with `Workspace: worktree`, `/mikado-loop` must run from inside the goal worktree. If invoked from the main checkout, it scans `git worktree list`, surfaces any goal worktrees it finds, and tells you the path to `cd` into.
 
 ### `/mikado-mr`
 

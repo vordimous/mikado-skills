@@ -2,6 +2,33 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Friction reduction for unattended leaf loops: permission preflights, an opinionated worktree default for `ai-implements`, and a tightened pacing contract for `/loop /mikado-loop`.
+
+### Added
+
+- **Permission preflight (Phase 0.1).** New phase between Phase 0 and Phase 0.3 that diffs the skill's known Bash patterns (code research, git read/write, worktree management) against `.claude/settings.local.json`, `.claude/settings.json`, and `~/.claude/settings.json`. If gaps exist, offers to write the missing patterns to `.claude/settings.local.json` after a single confirmation. Records the outcome as `Permission preflight: granted | declined` in the goal file. **Note:** Claude Code loads settings at session startup, so granting takes effect on the *next* session, not the current one. The preflight is a one-time setup step; once granted, every subsequent goal benefits.
+- **Test-command permission check (Phase 0.4).** After the testing-plan signoff, the same diff-and-write flow runs against the chosen tier commands (e.g. `Bash(./gradlew test:*)`, `Bash(npm test:*)`). Phase 0.1 covers code research; Phase 0.4 covers test runners. The two diffs do not overlap; the operator sees at most two short prompts.
+- **Goal worktree default (Phase 1.0).** When `Implementation: ai-implements`, the goal now runs in a long-lived sibling worktree (default path `../<repo-name>-mikado-<slug>`, fallback `~/.claude/mikado-worktrees/<repo>-<slug>`) on a new branch (`mikado/<slug>`). The main checkout is untouched for the duration of the goal. `Implementation: coach` keeps the existing in-place behavior. Phase 0.3 announces the workspace decision in one line; it is derived, not prompted.
+- **`mikado-loop` and `mikado-mr` workspace check.** Both skills detect when they are invoked from outside the goal worktree, scan `git worktree list` for the goal, and surface an actionable `cd` instruction.
+- **MR target choice (Phase 3 of mikado-mr).** When `Workspace: worktree`, mikado-mr offers a one-time choice between the remote default branch (default) and the goal's `Source branch`. The decision is recorded as `MR target` in front-matter and reused on subsequent runs.
+- **Front-matter additions.** `Workspace`, `Worktree path`, `Source branch`, `Permission preflight`, and `MR target` are written by Phase 1 (or by mikado-mr for `MR target`). Resumed goal files missing any of these fall back gracefully (see Phase 0.5).
+
+### Changed
+
+- **`mikado-loop` exit-signal contract** explicit about pacing: `MIKADO_LOOP_ADVANCE` / `MIKADO_LOOP_EXPAND` → next iteration fires immediately, no idle delay; `MIKADO_LOOP_DONE` / `MIKADO_LOOP_BLOCKED` → stop. The previous behavior depended on the orchestrator's self-pacing heuristic, which defaulted to 20-30 minute idle delays for indeterminate work.
+- **`/loop /mikado-loop` recommendation** unchanged as the primary form, with `/loop 60s /mikado-loop` documented as a workaround for harnesses that ignore the contract.
+- **`Bash(git switch -c :*)`** is the narrower pattern written into `permissions.allow` (instead of `Bash(git switch:*)`, which would also permit force-switch and conflict with the operating rules).
+
+### Breaking
+
+- **Default workspace for new `ai-implements` goals is `worktree`, not the operator's current branch.** The goal file lives inside the worktree; the main checkout's `.mikado/` stays empty. Existing goals are unaffected: missing `Workspace` field on resume is treated as `in-place` for backward compatibility. To opt out for a new goal, edit the front-matter `Workspace` field to `in-place` after Phase 1 records the goal, or pick `Implementation: coach`.
+
+### Migration
+
+- Goal files written by 0.2.0 and earlier resume cleanly. Phase 0.5 detects missing fields and falls back: `Workspace` → `in-place`, `Permission preflight` → re-run Phase 0.1 once and write the field, `MR target` → mikado-mr prompts on first run, `Source branch` → mikado-mr falls back to remote default and skips the source-branch alternative.
+
 ## [0.2.0] (2026-04-26)
 
 Three feature additions to the `mikado` skill plus the foundation for upcoming workflow modes. All changes are additive; resuming a goal started under 0.1.0 works unchanged (the new front-matter fields default cleanly when missing).

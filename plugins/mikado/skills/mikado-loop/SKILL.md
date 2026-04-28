@@ -11,16 +11,26 @@ One invocation = one leaf. When all leaves are done, exits with a signal so `/lo
 ## Composition
 
 - Manual single step: `/mikado-loop`
-- Auto-pace through all remaining leaves: `/loop /mikado-loop`
-- Fixed cadence (rarely needed, since leaves have variable duration): `/loop 15m /mikado-loop`
+- Auto-pace through all remaining leaves: `/loop /mikado-loop` (recommended)
+- Workaround for harnesses that ignore the exit-signal contract: `/loop 60s /mikado-loop` (caps idle time at 60s per leaf even if dynamic pacing kicks in long delays)
 
 When running inside `/loop`, fresh context each invocation is the point: it matches the Mikado-for-agents recommendation of one leaf per fresh session. Do NOT try to preserve session state between invocations via memory or conversation context; rely only on the graph file and git log.
 
 ## Locate the goal
 
-1. `ls .mikado/*.md 2>/dev/null`. If empty, stop with: "No Mikado goal found. Run `/mikado <goal>` first."
+1. `ls .mikado/*.md 2>/dev/null`. If empty, fall through to step 4 (worktree scan). Otherwise continue at step 2.
 2. If one file, use it.
 3. If multiple, prefer the most recently modified. Display it in the opening status line so the user can override via argument: `/mikado-loop <slug>`.
+4. **No `.mikado/` in the current checkout.** The goal may have been started with `Workspace: worktree`, in which case the goal file lives in a sibling worktree, not here. Run `git worktree list --porcelain` and inspect each listed worktree path for a `.mikado/<slug>.md`. If any are found, surface them and stop:
+
+   ```
+   No goal in current checkout. Found goal worktrees:
+     <path>  goal: <slug>  branch: <branch>
+   Run /mikado-loop from inside one of these:
+     cd <path>
+   ```
+
+   If no sibling worktrees contain a goal file, stop with the original message: `No Mikado goal found. Run /mikado <goal> first.`
 
 ## Exit-condition check (before doing any work)
 
@@ -35,8 +45,11 @@ Skip the full Phase 0 from the global skill. This skill runs often, so keep it t
 
 1. `git status --short`. Must be empty. If not, stop: "Working tree dirty. Commit or stash before running /mikado-loop."
 2. `git rev-parse --abbrev-ref HEAD`. Must not be a protected branch. If it is, stop.
-3. Reconcile if out-of-band commits exist since Base commit (Phase 0.5 of the global skill). If reconciliation would require user input, stop and ask; do not silently alter the graph.
-4. Read `Cadence`, `MR strategy`, and `Implementation` from the goal file's front-matter (set in `mikado/SKILL.md` Phase 0.3). The current release fully wires only `Cadence: per-leaf` + `MR strategy: at-goal` + `Implementation: ai-implements`. For any other combination, print a one-line fallback warning naming the field (e.g. "Implementation: coach is not yet wired in this release; falling back to ai-implements") and proceed with the supported behavior. Do not block. Subsequent phases (B for `coach`, C for `per-cluster` / `continuous`, D for sub-MR strategies) wire the remaining combinations.
+3. **Workspace check.** Read `Workspace` and `Worktree path` from the goal file's front-matter.
+   - If `Workspace: worktree`: run `git rev-parse --show-toplevel` and compare against `Worktree path`. If they don't match, the operator launched the loop from outside the goal worktree (e.g. via a nested checkout). Stop with: `Run /mikado-loop from inside the goal worktree at <path>. cd there and re-run.`
+   - If `Workspace: in-place` or the field is missing (older goal file): no check; continue.
+4. Reconcile if out-of-band commits exist since Base commit (Phase 0.5 of the global skill). If reconciliation would require user input, stop and ask; do not silently alter the graph.
+5. Read `Cadence`, `MR strategy`, and `Implementation` from the goal file's front-matter (set in `mikado/SKILL.md` Phase 0.3). The current release fully wires only `Cadence: per-leaf` + `MR strategy: at-goal` + `Implementation: ai-implements`. For any other combination, print a one-line fallback warning naming the field (e.g. "Implementation: coach is not yet wired in this release; falling back to ai-implements") and proceed with the supported behavior. Do not block. Subsequent phases (B for `coach`, C for `per-cluster` / `continuous`, D for sub-MR strategies) wire the remaining combinations.
 
 ## Pick ONE leaf
 
@@ -114,7 +127,14 @@ End every invocation with one of these status lines on its own line, so `/loop` 
 - `MIKADO_LOOP_DONE: goal '<slug>' complete; run /mikado-mr to open MR`
 - `MIKADO_LOOP_BLOCKED: <reason>` (dirty tree, reconcile conflict, genuine open question with no default, etc.)
 
-`MIKADO_LOOP_DONE` and `MIKADO_LOOP_BLOCKED` should stop further iterations. The `/loop` skill's self-pacing lets the model decide not to continue; include a clear "stop looping" signal when emitting these.
+### Pacing contract for `/loop`
+
+The dynamic `/loop` self-pacing heuristic defaults to long idle delays (20 to 30 minutes) for indeterminate work. Mikado leaves are determinate: there is either more graph work or there is not. The exit signal tells you which. Honor this:
+
+- `MIKADO_LOOP_ADVANCE` / `MIKADO_LOOP_EXPAND` → fire the next iteration immediately. Do not insert an idle delay. If the harness requires a `delaySeconds` value, use the minimum it accepts (typically 60s).
+- `MIKADO_LOOP_DONE` / `MIKADO_LOOP_BLOCKED` → stop. Do not schedule another iteration.
+
+Include a clear "stop looping" signal in the final output when emitting `DONE` or `BLOCKED` so the orchestrator parses the intent unambiguously.
 
 Alongside the status line, emit a short summary block so the user can see progress at a glance:
 

@@ -75,6 +75,66 @@ Run in sequence:
    - Polyglot repos: ask the user which subsystem the goal targets.
 4. Ensure `.mikado/` exists; create it if not.
 
+## Phase 0.1: Permission preflight
+
+The leaf loop will repeatedly invoke a known set of Bash patterns (code research, git operations, worktree management). If any are not in the project's allowlist, the user gets prompted mid-loop and the unattended run stalls. Pre-emptively offer to add them to `.claude/settings.local.json`.
+
+**Important:** Claude Code loads settings at session startup only. Entries written to `.claude/settings.local.json` during a session do **not** take effect until the next session. The preflight is therefore a one-time setup step: once granted, every subsequent goal benefits.
+
+### Step 1: Compute the known set
+
+These patterns cover the skill's needs across the entire goal lifecycle:
+
+- **Code research:** `Bash(grep:*)`, `Bash(find:*)`, `Bash(ls:*)`, `Bash(rg:*)`
+- **Git read-only:** `Bash(git status:*)`, `Bash(git log:*)`, `Bash(git diff:*)`, `Bash(git rev-parse:*)`, `Bash(git rev-list:*)`, `Bash(git show:*)`, `Bash(git branch:*)`, `Bash(git remote:*)`, `Bash(git worktree list:*)`
+- **Git write (per the operating rules):** `Bash(git add :*)`, `Bash(git commit:*)`, `Bash(git restore:*)`, `Bash(git stash:*)`, `Bash(git revert:*)`, `Bash(git cherry-pick:*)`, `Bash(git switch -c :*)` (creation only; the bare `Bash(git switch:*)` would also permit `-C` force-switch and conflict with the operating rules)
+- **Worktree management:** `Bash(git worktree add:*)`, `Bash(git worktree remove:*)`
+
+Test runner patterns (`./gradlew test`, `npm test`, `pytest`, etc.) are intentionally **not** in this set. They depend on the testing-plan signoff in Phase 0.4 and are handled by that phase.
+
+### Step 2: Diff against existing allowlists
+
+Read in this order, accumulating allow-entries:
+1. `.claude/settings.local.json` (project local)
+2. `.claude/settings.json` (project shared)
+3. `~/.claude/settings.json` (user global)
+
+Compute the diff: which patterns from the known set are not yet permitted by any of the three.
+
+### Step 3: Prompt and write
+
+If gaps exist, print a one-screen summary using this language:
+
+```
+Mikado uses the following Bash patterns repeatedly across every goal.
+The ones below are not yet allowed and will prompt you mid-loop unless added now.
+
+Missing from .claude/settings.local.json:
+  <pattern 1>
+  <pattern 2>
+  ...
+
+Allow them?  (Note: settings load at session startup; granting here takes
+effect the next time you open Claude Code, not for this session. The
+remaining mid-loop prompts in this session are a one-time cost.)
+```
+
+On `y`: read `.claude/settings.local.json` (or treat as `{}` if absent), merge the missing patterns into `permissions.allow` while preserving all other content, write back. Do not touch `.claude/settings.json` (project shared) or the user's global settings; the local file is the right scope for opt-in granting.
+
+On `n`: continue. Each missing pattern will prompt during the loop.
+
+Test commands derived in Phase 0.4 are handled separately. Make this explicit so the operator isn't surprised by a second permission prompt later.
+
+### Step 4: Persist the choice
+
+Record the outcome in the goal file's front-matter when Phase 1 writes it:
+
+```
+**Permission preflight:** granted | declined
+```
+
+Phase 0.5 (resume) reads this. If the field is missing on a resumed goal (older skill version), re-run Phase 0.1 once and write the field. Do not assume `granted`; do not assume `declined`.
+
 ## Phase 0.3: Goal configuration
 
 Three configuration choices control rhythm and integration for this goal. Surface the **ethos preamble** first (so the user understands the discipline the choices sit on top of), then prompt for the three values, then persist them to the goal file's front-matter for Phase 4, mikado-loop, and mikado-mr to consult.
@@ -114,6 +174,22 @@ Ask three questions, in this order. Annotate each option with its release status
 
 When `Implementation: coach` is selected, omit `Cadence: continuous` from the cadence options (coach mode requires user input at each leaf, so unbroken running is incoherent).
 
+### Workspace (derived, not prompted)
+
+Workspace placement is derived from `Implementation`, not a separate prompt:
+
+- `Implementation: ai-implements` → `Workspace: worktree` (the goal runs in a long-lived sibling worktree, isolated from the operator's main checkout).
+- `Implementation: coach` → `Workspace: in-place` (the operator is writing the code on their own branch; no separate worktree).
+
+Print verbatim after the three prompts:
+
+```
+Workspace: <worktree|in-place> (derived from Implementation: <value>).
+To override, edit the goal file's front-matter Workspace field after Phase 1 records the goal.
+```
+
+No keypress; this is an announcement, not a prompt. Operators who want `in-place` with `ai-implements` (rare) edit the front-matter manually after Phase 1 writes the file.
+
 ### Persistence
 
 Write the agreed values to the goal file's front-matter (added in Phase 1):
@@ -122,6 +198,7 @@ Write the agreed values to the goal file's front-matter (added in Phase 1):
 **Cadence:** <value>
 **MR strategy:** <value>
 **Implementation:** <value>
+**Workspace:** <worktree|in-place>
 ```
 
 The values are read by:
@@ -186,6 +263,21 @@ Sign off, amend, or add instructions:
 
 The user can confirm as-is, edit any line, add affinity rules, or override the source-derived defaults entirely. Whatever they sign off becomes the durable plan.
 
+### Permission check for test commands
+
+After signoff and before writing the plan to the goal file, run the same diff-and-prompt flow as Phase 0.1, scoped to the test commands the user just confirmed:
+
+1. Extract the concrete commands: fast tier, targeted tier base command (without filters), regression tier.
+2. Derive the matching Bash permission pattern for each. Examples:
+   - `./gradlew test --tests Foo` → `Bash(./gradlew test:*)`
+   - `npm test -- --watch=false` → `Bash(npm test:*)`
+   - `pytest -k Billing` → `Bash(pytest:*)`
+   - `./gradlew compileJava` → `Bash(./gradlew compileJava:*)`
+3. Diff against the now-updated allowlist (Phase 0.1 already covered code research and git ops).
+4. If gaps exist, prompt with the same language as Phase 0.1 (including the session-restart caveat) and write to `.claude/settings.local.json` on `y`.
+
+This is the second and final permission prompt the operator will see. Phase 0.1 covered code research and git; Phase 0.4 covers test commands. The two diffs do not overlap.
+
 The agreed plan is written into the goal file in Phase 1 as the `## Testing plan` section. For resumed goals, write any amendments back to that section and propose a single commit (`mikado: update testing plan`) if the section changed.
 
 Confidence is the skill's honest read of how well the derived plan matches reality:
@@ -199,19 +291,28 @@ Low confidence is not a blocker. It's a signal to the user that this is the mome
 
 If `.mikado/<slug>.md` already exists, this is a resumed session. Before picking a leaf, **reconcile the graph with the actual branch state**. The user may have committed out-of-band since last session.
 
-Phase 0.3 (ethos preamble and configuration prompts) is suppressed on resume; the values for `Cadence`, `MR strategy`, and `Implementation` are read from the existing front-matter. If the user wants to change a value mid-goal, they edit the front-matter directly and the skill picks up the new value at the next leaf boundary.
+Phase 0.3 (ethos preamble and configuration prompts) is suppressed on resume; the values for `Cadence`, `MR strategy`, `Implementation`, and `Workspace` are read from the existing front-matter. If the user wants to change a value mid-goal, they edit the front-matter directly and the skill picks up the new value at the next leaf boundary.
 
-1. Read `.mikado/<slug>.md`. Note the `Base commit`, `Commit strategy`, `Cadence`, `MR strategy`, and `Implementation`.
-2. `git log --oneline <base-commit>..HEAD`. List every commit since the goal started.
-3. For each commit, match its subject against the graph's prerequisite list:
+1. Read `.mikado/<slug>.md`. Note the `Base commit`, `Commit strategy`, `Cadence`, `MR strategy`, `Implementation`, `Workspace`, `Worktree path`, `Source branch`, `Permission preflight`, and `MR target` fields.
+2. **Backward-compat for goal files written by older skill versions** (any field below may be missing):
+   - Missing `Workspace`: assume `in-place` and print `Resumed goal has no Workspace field; treating as in-place.` Do not silently relocate work to a new worktree.
+   - Missing `Permission preflight`: re-run Phase 0.1 once and write the field. Do not assume `granted`; do not assume `declined`.
+   - Missing `Worktree path` while `Workspace: worktree`: stop with `Goal claims Workspace: worktree but has no Worktree path. Edit the front-matter to add the path or set Workspace: in-place.`
+   - Missing `Source branch`: leave blank; mikado-mr will fall back to remote default and not offer the source-branch option.
+   - Missing `MR target`: leave unset; mikado-mr prompts on first run.
+3. **Workspace check on resume.** If `Workspace: worktree`:
+   - Run `git rev-parse --show-toplevel` and compare against `Worktree path`. If they don't match, the operator opened the resume from outside the worktree. Stop with `Resume Workspace: worktree from inside the goal worktree at <path>. cd there and re-run.`
+   - If they match, continue.
+4. `git log --oneline <base-commit>..HEAD`. List every commit since the goal started.
+5. For each commit, match its subject against the graph's prerequisite list:
    - If a commit looks like it implemented a still-unchecked prereq, flag it.
    - If a commit doesn't match any prereq, note it as an out-of-band change.
-4. Show the user:
+6. Show the user:
    - Current status line and remaining unchecked prerequisites
    - Commits since start, with matches/mismatches highlighted
    - Any suspected unchecked-but-implemented leaves
    - The next suggested leaf
-5. Ask: resume as-is, update graph to mark flagged prereqs done, or start over?
+7. Ask: resume as-is, update graph to mark flagged prereqs done, or start over?
 
 If the user resumes, apply any confirmed check-offs to the graph before Phase 4, and propose a single reconciliation commit (`mikado: reconcile graph with branch state`) if the graph changed.
 
@@ -240,6 +341,30 @@ Anticipated prereqs are not the same as observed prereqs. They start the graph w
 
 ## Phase 1: Record the goal
 
+If `Workspace: worktree`, set up the goal worktree **before** writing the goal file. The goal file lives inside the worktree, not the main checkout; the main checkout stays untouched for the duration of the goal.
+
+### Phase 1.0: Goal worktree setup (Workspace: worktree only)
+
+Skip this entire subsection if `Workspace: in-place` (Phase 0.3 derived `in-place` from `Implementation: coach`, or the operator overrode the default).
+
+1. **Compute the branch name.** Default: `mikado/<slug>`. If the source branch (current `git rev-parse --abbrev-ref HEAD`) already starts with `mikado/`, use `<source-branch>-mikado` to avoid collision.
+2. **Compute the worktree path.** Prefer `../<repo-name>-mikado-<slug>` (sibling of the main checkout). Before creating, verify:
+   - The parent directory exists and is writable.
+   - The target path does not already exist.
+
+   If either fails, fall back to `~/.claude/mikado-worktrees/<repo>-<slug>`. Create the parent directory if needed.
+3. **Print the chosen path** before running `git worktree add`, so the operator sees where the worktree will land.
+4. **Create the worktree:**
+   ```
+   git worktree add -b <branch> <path> <current-HEAD>
+   ```
+5. **Switch the skill's working directory.** Resolve an absolute path to the worktree; from this point forward in the session, every Bash invocation either runs inside the worktree (`cd <path> && ...`) or uses `git -C <path>` for git commands and absolute paths for file operations. Do not rely on `cd` persistence alone, because the Bash tool's CWD resets across `/mikado-loop` invocations and the absolute path keeps the skill correct in either case.
+6. **Record the source branch** for later use by mikado-mr (it offers it as an alternative MR target). Capture the source branch as the value of `git rev-parse --abbrev-ref HEAD` from before the worktree was created.
+
+After Phase 1.0, the goal file and all subsequent commits land in the worktree. The main checkout is untouched.
+
+### Phase 1.1: Write the goal file
+
 Write `.mikado/<slug>.md` using this template (the outer four-backtick fence is only here so the inner three-backtick mermaid fence renders; write the inner version to the file):
 
 ````markdown
@@ -253,8 +378,13 @@ Write `.mikado/<slug>.md` using this template (the outer four-backtick fence is 
 **Cadence:** <continuous|per-leaf|per-cluster>
 **MR strategy:** <per-leaf|per-cluster|at-goal>
 **Implementation:** <ai-implements|coach>
+**Workspace:** <worktree|in-place>
+**Worktree path:** <absolute path to the goal worktree; omit this line entirely if Workspace: in-place>
+**Source branch:** <branch the operator was on when Phase 1 ran; the parent of the goal worktree's branch>
+**Permission preflight:** <granted|declined>
+**MR target:** <branch; written by mikado-mr on first run; omit until then>
 **Commit strategy:** <unset; to be set on first leaf: separate|folded>
-**Base commit:** <SHA of feature branch HEAD when goal started>
+**Base commit:** <SHA of the goal worktree branch HEAD at goal start; matches Source branch HEAD>
 
 ## Acceptance
 
@@ -316,6 +446,24 @@ graph TD
 `Commit strategy` stays `unset` until the first leaf is completed; on that leaf, ask the user whether to keep graph updates as a separate commit (`separate`) or fold them into the leaf's commit (`folded`), then update this field. For every subsequent leaf, follow the recorded strategy without re-asking.
 
 Commit: `mikado: start goal '<slug>'`. Show the diff summary, then commit directly.
+
+### Phase 1.2: Announce the goal worktree
+
+If `Workspace: worktree`, after the start-goal commit lands, print this block prominently so the operator can see where the worktree is and what to do next:
+
+```
+Goal worktree created.
+  Path:   <absolute path>
+  Branch: <branch>
+  Source: <source branch>
+
+Subsequent /mikado-loop and /mikado-mr invocations must run from inside this worktree.
+cd <path>
+```
+
+The operator runs that `cd` themselves. The skill does not silently change directories for ad-hoc terminal commands the operator may issue alongside; consistency between the skill's view and the operator's terminal matters more than saving a keystroke.
+
+If `Workspace: in-place`, skip this announcement; the operator already knows where they are.
 
 ## Phase 2: Naive experiment
 
