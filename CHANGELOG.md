@@ -2,6 +2,12 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] (2026-04-28)
+
+### Fixed
+
+- Plugin manifest validation error on install: removed the `$schema` field from `plugins/mikado/.claude-plugin/plugin.json`. Claude Code's manifest validator rejects unrecognized keys, and `$schema` is no longer accepted there. No behavior change in the skills themselves.
+
 ## [0.3.0] (2026-04-28)
 
 Friction reduction for unattended leaf loops: permission preflights, an opinionated worktree default for `ai-implements`, and a tightened pacing contract for `/loop /mikado-loop`.

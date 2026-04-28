@@ -1,8 +1,7 @@
 {
-  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "mikado",
   "description": "Mikado Method skills for Claude Code: discover prerequisites for large refactors by experiment, drive leaves with /loop, ship via merge or pull request.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": {
     "name": "Aaron Danelz"
   },

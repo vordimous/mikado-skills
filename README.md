@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-7E5BEF.svg)](https://docs.claude.com/en/docs/claude-code/overview)
-[![Version](https://img.shields.io/badge/version-0.3.0-informational)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.1-informational)](CHANGELOG.md)
 
 Mikado Method skills for [Claude Code](https://docs.claude.com/en/docs/claude-code/overview), packaged as a plugin.
 
