@@ -2,7 +2,7 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] (2026-04-28)
 
 Friction reduction for unattended leaf loops: permission preflights, an opinionated worktree default for `ai-implements`, and a tightened pacing contract for `/loop /mikado-loop`.
 
