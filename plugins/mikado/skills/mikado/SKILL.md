@@ -50,6 +50,8 @@ If none of these headings match and the file is non-empty, treat its full conten
 - **Use the goal's Testing plan to scope verification.** Phase 0.4 derives a tiered plan (fast / targeted / regression, plus optional affinity rules) from existing repo context and gets the user's signoff. The agreed plan is the `## Testing plan` section of the goal file. Default to the fast tier after every leaf. Escalate to the targeted tier when the leaf changes logic (not pure refactor) or an affinity rule fires. The regression tier runs at Phase 5 only, never per-leaf. Treat unsanctioned module-level runs in the leaf loop as a yellow flag requiring explicit justification.
 - **Fold codegen byproducts into the producing leaf.** Auto-generated files (OpenAPI specs, API clients, lockfiles) regenerate deterministically from their source. When a leaf causes them to regenerate, stage and include them in the same commit as the leaf; do not create separate `chore: regenerate X` commits. The exception is when codegen regenerates on its own schedule (unrelated churn); that's the only case where a standalone regen commit is correct.
 - **Subagent timeout recovery.** If a subagent returns without committing (timed out mid-test, returned control prematurely, hit a silent error), verify its work in the main session before redelegating. If acceptance criteria are met (modified files are coherent, narrow test suite is green), commit the staged work directly. If the work is incomplete or incoherent, revert the uncommitted changes and re-delegate. Do not spin a fresh subagent on top of half-finished work.
+- **Mikado scaffolding stays out of shipped code.** While the goal is in progress, freely add comments, log labels, TODO markers, test names, or temporary helpers that mention "mikado", leaf identifiers (`P1`, `P2a`), phase numbers, or graph terminology to help track work across leaves. **Before the final goal commit (Phase 5)**, scrub these references from shipped code: source comments, docstrings, log/print strings, test descriptions, fixture identifiers, and similar. Shipped code should not advertise the planning artifact that produced it; the graph file at `.mikado/<slug>.md` and the `mikado:`-prefixed commit messages are the durable record. The `.mikado/` directory and commit messages are part of the artifact and stay.
+- **Use `AskUserQuestion` for structured setup prompts.** Phases 0.1, 0.3, 0.4, and 0.5 all collect operator input. Whenever the answer is one of a small fixed set (yes/no, an enum, an option from a menu, "confirm/amend/replace"), use the `AskUserQuestion` tool rather than free-text prompts in the chat. Answers come back unambiguous, parseable, and don't require the operator to re-type option labels. Reserve free-text prompts for genuinely open-ended input (e.g. "edit this testing-plan command").
 
 ## Agent-safe git: six properties this skill upholds
 
@@ -88,9 +90,11 @@ These patterns cover the skill's needs across the entire goal lifecycle:
 **Permission pattern format:** Claude Code uses `Bash(<command-prefix> :*)` for prefix matching, with a space before `:*`. Example from the global CLAUDE.md: `Bash(python3 -c :*)`. Write patterns this way exactly; do not collapse the space.
 
 - **Code research:** `Bash(grep :*)`, `Bash(find :*)`, `Bash(ls :*)`, `Bash(rg :*)`
+- **Pipeline utilities** (right-hand side of `|` in research pipelines; Claude Code asks for permission on each command in a pipeline separately, so each must be on the allowlist): `Bash(head :*)`, `Bash(tail :*)`, `Bash(wc :*)`, `Bash(sort :*)`, `Bash(uniq :*)`, `Bash(cat :*)`
 - **Git read-only:** `Bash(git status :*)`, `Bash(git log :*)`, `Bash(git diff :*)`, `Bash(git rev-parse :*)`, `Bash(git rev-list :*)`, `Bash(git show :*)`, `Bash(git branch :*)`, `Bash(git remote :*)`, `Bash(git worktree list :*)`
 - **Git write (per the operating rules):** `Bash(git add :*)`, `Bash(git commit :*)`, `Bash(git restore :*)`, `Bash(git stash :*)`, `Bash(git revert :*)`, `Bash(git cherry-pick :*)`, `Bash(git switch -c :*)` (creation only; the bare `Bash(git switch :*)` would also permit `-C` force-switch and conflict with the operating rules)
 - **Worktree management:** `Bash(git worktree add :*)`, `Bash(git worktree remove :*)`, `Bash(git worktree prune :*)`, `Bash(mkdir :*)` (parent-directory creation for the fallback worktree path)
+- **Worktree compound commands** (only relevant when `Workspace: worktree`; the skill prefixes commands with `cd <worktree-path> && ...` so they run inside the goal worktree, and Claude Code's matcher reads the leading `cd` as the prefix to permit. Without this, every per-leaf commit and graph update inside the worktree fires a fresh prompt for the entire compound, e.g. `cd <path> && git add .mikado/<slug>.md && git diff --cached --stat && git commit -m "..."`): `Bash(cd :*)`
 
 Test runner patterns (`./gradlew test`, `npm test`, `pytest`, etc.) are intentionally **not** in this set. They depend on the testing-plan signoff in Phase 0.4 and are handled by that phase.
 
@@ -105,25 +109,17 @@ Compute the diff: which patterns from the known set are not yet permitted by any
 
 ### Step 3: Prompt and write
 
-If gaps exist, print a one-screen summary using this language:
+If gaps exist, list the missing patterns to the operator (one per line) and ask via `AskUserQuestion` with the question `Allow these Bash patterns in .claude/settings.local.json?` and options:
 
-```
-Mikado uses the following Bash patterns repeatedly across every goal.
-The ones below are not yet allowed and will prompt you mid-loop unless added now.
+- `Allow` — write the missing patterns to `.claude/settings.local.json`
+- `Decline` — skip; each missing pattern will prompt during the loop
+- `Show details` — re-list the patterns and re-ask (use this only if the operator asks why)
 
-Missing from .claude/settings.local.json:
-  <pattern 1>
-  <pattern 2>
-  ...
+Include this caveat in the question's body so the operator sees it before answering: "Settings load at session startup; granting here takes effect the next time you open Claude Code, not for this session. The remaining mid-loop prompts in this session are a one-time cost."
 
-Allow them?  (Note: settings load at session startup; granting here takes
-effect the next time you open Claude Code, not for this session. The
-remaining mid-loop prompts in this session are a one-time cost.)
-```
+On **Allow**: read `.claude/settings.local.json` (or treat as `{}` if absent), merge the missing patterns into `permissions.allow` while preserving all other content, write back. Do not touch `.claude/settings.json` (project shared) or the user's global settings; the local file is the right scope for opt-in granting.
 
-On `y`: read `.claude/settings.local.json` (or treat as `{}` if absent), merge the missing patterns into `permissions.allow` while preserving all other content, write back. Do not touch `.claude/settings.json` (project shared) or the user's global settings; the local file is the right scope for opt-in granting.
-
-On `n`: continue. Each missing pattern will prompt during the loop.
+On **Decline**: continue. Each missing pattern will prompt during the loop.
 
 Test commands derived in Phase 0.4 are handled separately. Make this explicit so the operator isn't surprised by a second permission prompt later.
 
@@ -160,7 +156,7 @@ not the discipline above.
 
 ### Prompts
 
-Ask three questions, in this order. Annotate each option with its release status: **(supported)** for the fully-wired path, **(experimental, falls back to <default> in this release)** for options whose downstream behavior is deferred to Phase B/C/D.
+Ask three questions, in this order, using the `AskUserQuestion` tool (one tool call per question, in the order below). Annotate each option with its release status: **(supported)** for the fully-wired path, **(experimental, falls back to <default> in this release)** for options whose downstream behavior is deferred to Phase B/C/D. Put the status annotation in the option's description, not its label, so the labels stay short.
 
 1. **Cadence** (`continuous` | `per-leaf` | `per-cluster`): where the leaf loop pauses for review.
    - `per-leaf` **(supported)**: pause after every leaf commit. Best for review-heavy workflows.
@@ -242,7 +238,7 @@ Optionally, an **affinity map** ("if a leaf touches `src/billing/`, escalate to 
 
 ### Signoff prompt
 
-Show the derived plan and ask the user to confirm or amend:
+Print the derived plan as a single block (so the operator can see all tiers, affinity rules, skip list, source, and confidence at once):
 
 ```
 Testing plan (derived from <source summary>):
@@ -259,11 +255,15 @@ Testing plan (derived from <source summary>):
 
   Source: <CLAUDE.md section / README / build files / convention>
   Confidence: <high | medium | low>
-
-Sign off, amend, or add instructions:
 ```
 
-The user can confirm as-is, edit any line, add affinity rules, or override the source-derived defaults entirely. Whatever they sign off becomes the durable plan.
+Then ask via `AskUserQuestion`: `Sign off on the testing plan?` with options:
+
+- `Confirm` — accept as-is and persist to the goal file
+- `Amend` — operator wants to change one or more lines; follow up with a free-text prompt asking which lines to edit and how, then re-render the plan and re-ask
+- `Replace` — operator wants to write the plan from scratch; follow up with a free-text prompt for the replacement and skip re-derivation
+
+Whatever the operator signs off becomes the durable plan written to the goal file.
 
 ### Permission check for test commands
 
@@ -314,7 +314,10 @@ Phase 0.3 (ethos preamble and configuration prompts) is suppressed on resume; th
    - Commits since start, with matches/mismatches highlighted
    - Any suspected unchecked-but-implemented leaves
    - The next suggested leaf
-7. Ask: resume as-is, update graph to mark flagged prereqs done, or start over?
+7. Ask via `AskUserQuestion`: `How should we proceed with the resumed goal?` with options:
+   - `Resume as-is` — keep the graph unchanged and pick the next leaf
+   - `Update graph` — apply the flagged check-offs (and any reconciled commits) before continuing
+   - `Start over` — abandon the goal file and re-run `/mikado <goal>` from scratch (operator confirms before deletion)
 
 If the user resumes, apply any confirmed check-offs to the graph before Phase 4, and propose a single reconciliation commit (`mikado: reconcile graph with branch state`) if the graph changed.
 
@@ -592,7 +595,7 @@ Mark the leaf checked in `.mikado/<slug>.md`:
 - Append ` ✓` or strikethrough to the Mermaid node label (e.g. `P2a[Choose lock replacement ✓]`)
 
 Consult the `Commit strategy` front-matter field:
-- If `unset`: ask the user once. Separate graph commit (`mikado: check off '<leaf>'`) or folded into the leaf's commit? Then write the choice (`separate` or `folded`) to the front-matter and proceed.
+- If `unset`: ask via `AskUserQuestion` once. Question: `Commit strategy for graph updates this goal?` Options: `Separate` (graph update lands as its own `mikado: check off '<leaf>'` commit after each leaf), `Folded` (graph update is staged into the leaf's commit, one commit per leaf). Write the choice to the front-matter and proceed without asking again.
 - If `separate`: commit the leaf, then a follow-up graph commit.
 - If `folded`: single commit that includes both the code change and the graph update.
 
@@ -604,9 +607,10 @@ When all prerequisites are checked, attempt the original goal:
 
 1. Optional final worktree experiment to confirm nothing regressed.
 2. Implement on the feature branch.
-3. Run the regression tier from the goal file's `## Testing plan`. Capture any new flakes in the plan's flaky tests list before opening the MR.
-4. Propose the final commit: something like `<type>: <goal>` with the ticket key.
-5. Update the graph status to `Complete`, dated.
+3. **Scrub Mikado scaffolding from shipped code.** Search the working tree, excluding `.mikado/`, for references to "mikado", graph node IDs (`P\d+[a-z]?`), phase numbers, leaf identifiers, and similar planning terminology in source comments, docstrings, log/print strings, test descriptions, and fixture names. Show the matches grouped by file, propose removals, and let the operator confirm before staging. The `.mikado/<slug>.md` artifact and `mikado:`-prefixed commit messages stay. This is a single sweep at the end of the goal, not per-leaf.
+4. Run the regression tier from the goal file's `## Testing plan`. Capture any new flakes in the plan's flaky tests list before opening the MR.
+5. Propose the final commit: something like `<type>: <goal>` with the ticket key. Fold the scrub diff into this commit when it's small; if the scrub touches many files, propose a separate `chore: remove mikado scaffolding` commit so the final goal commit stays focused on the implementation.
+6. Update the graph status to `Complete`, dated.
 
 Offer a short retro:
 - Any prerequisites that turned out unnecessary?

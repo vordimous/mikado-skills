@@ -2,6 +2,20 @@
 
 All notable changes to this plugin are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] (2026-05-01)
+
+Three operator-feedback changes: keep planning artifacts out of shipped code, stop prompting for worktree compound commands, and route setup-time prompts through structured questions.
+
+### Added
+
+- **End-of-goal scaffolding scrub (Phase 5).** New step before the final commit: search the working tree (excluding `.mikado/`) for references to "mikado", graph node IDs (`P\d+[a-z]?`), phase numbers, leaf identifiers, and similar planning terminology in source comments, docstrings, log/print strings, test descriptions, and fixture names. Operator confirms the proposed removals before staging. Big scrubs land as a separate `chore: remove mikado scaffolding` commit so the final goal commit stays focused on the implementation. The `.mikado/<slug>.md` artifact and `mikado:`-prefixed commit messages stay; they're the durable record.
+- **Worktree compound-command permission (Phase 0.1).** `Bash(cd :*)` added to the known set. When `Workspace: worktree`, the skill prefixes Bash invocations with `cd <worktree-path> && ...` so they execute inside the goal worktree; without this entry, every per-leaf graph commit fired a permission prompt for the entire compound (e.g. `cd <path> && git add .mikado/<slug>.md && git diff --cached --stat && git commit -m "..."`). Granting once at preflight removes the prompts for every subsequent goal.
+
+### Changed
+
+- **Operating rule: Mikado scaffolding stays out of shipped code.** Explicitly permits scaffolding (comments, log labels, TODO markers, test names, leaf IDs, phase numbers) during the goal to help track work across leaves. Phase 5's new scrub step removes them before the goal ships. Shipped code should not advertise the planning artifact that produced it.
+- **Setup prompts use `AskUserQuestion`.** Phase 0.1 (Allow / Decline), Phase 0.3 (the three configuration choices), Phase 0.4 testing-plan signoff (Confirm / Amend / Replace), Phase 0.5 resume reconciliation (Resume as-is / Update graph / Start over), and the once-per-goal Phase 4e commit-strategy choice (Separate / Folded) now route through structured questions. Free-text prompts are reserved for genuinely open-ended input like operator edits to a tier command. Replaces the prior chat-based "type y/n" / "answer in prose" pattern.
+
 ## [0.3.2] (2026-04-28)
 
 ### Fixed
